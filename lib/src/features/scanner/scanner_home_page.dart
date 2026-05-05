@@ -267,6 +267,7 @@ class _AppHeader extends StatelessWidget {
         Container(
           width: 46,
           height: 46,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: AppColors.menu,
             borderRadius: BorderRadius.circular(8),
@@ -278,7 +279,7 @@ class _AppHeader extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(Icons.qr_code_2, color: Colors.white),
+          child: Image.asset('Tdetalmax.png', fit: BoxFit.cover),
         ),
         const SizedBox(width: 12),
         Expanded(

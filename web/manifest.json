@@ -1,11 +1,11 @@
 {
-    "name": "qr_datamatrix_reader",
-    "short_name": "qr_datamatrix_reader",
+    "name": "Talmax QR",
+    "short_name": "Talmax QR",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Leitor QR/DataMatrix Talmax.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
