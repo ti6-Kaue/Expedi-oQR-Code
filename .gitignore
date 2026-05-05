@@ -41,6 +41,7 @@ api/.env
 /build/
 /coverage/
 /dist/
+/ARQUIVOS_GERADOS/
 
 # Symbolication related
 app.*.symbols
