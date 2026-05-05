@@ -45,10 +45,21 @@ Body do `POST /scans`:
 
 ```json
 {
-  "value": "texto lido",
-  "format": "QR Code"
+  "value": "01079087187518382407322\u001d10L2250917002-450-A\u001d921\u001d1125091793297\u001d94293\u001d95P",
+  "format": "QR Code",
+  "gtin": "07908718751838",
+  "produto": "7322",
+  "lote": "L2250917002-450-A",
+  "quantidade": "1",
+  "data_fab": "250917",
+  "caixa": "297",
+  "qtd_etiqueta": "293",
+  "tipo": "P"
 }
 ```
+
+Se o app enviar apenas `value` e `format`, a API tambem tenta separar os campos
+GS1 antes de gravar no MySQL.
 
 ## Flutter
 

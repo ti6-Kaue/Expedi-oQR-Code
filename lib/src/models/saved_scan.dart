@@ -1,5 +1,7 @@
 // Modelo de uma leitura salva.
 // Observacao: usado tanto para salvar localmente quanto para enviar para a API.
+import 'parsed_gs1_code.dart';
+
 class SavedScan {
   const SavedScan({
     required this.value,
@@ -24,6 +26,8 @@ class SavedScan {
   final String format;
   final DateTime savedAt;
 
+  ParsedGs1Code? get parsedCode => ParsedGs1Code.tryParse(value);
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'value': value,
@@ -33,6 +37,12 @@ class SavedScan {
   }
 
   Map<String, Object?> toApiJson() {
-    return <String, Object?>{'value': value, 'format': format};
+    final parsed = parsedCode;
+
+    return <String, Object?>{
+      'value': value,
+      'format': format,
+      if (parsed != null) ...parsed.toJsonFields(),
+    };
   }
 }

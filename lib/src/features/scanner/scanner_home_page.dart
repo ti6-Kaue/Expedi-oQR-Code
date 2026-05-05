@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_colors.dart';
+import '../../models/parsed_gs1_code.dart';
 import '../../models/saved_scan.dart';
 import '../../services/local_scan_storage.dart';
 import '../../services/remote_scan_service.dart';
@@ -446,6 +447,7 @@ class _CurrentReadout extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final value = barcode?.rawValue ?? barcode?.displayValue;
     final hasValue = value != null && value.trim().isNotEmpty;
+    final parsedCode = hasValue ? ParsedGs1Code.tryParse(value) : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -501,14 +503,35 @@ class _CurrentReadout extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          SelectableText(
-            hasValue ? value : 'Nada lido ainda.',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: hasValue ? AppColors.textPrimary : AppColors.searchSubmenu,
-              height: 1.25,
+          if (parsedCode != null) ...[
+            _ParsedGs1Fields(code: parsedCode),
+            const SizedBox(height: 10),
+            Text(
+              'Codigo original',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.searchSubmenu,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
+            const SizedBox(height: 4),
+            SelectableText(
+              visibleGs1Value(value!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.searchSubmenu,
+                height: 1.25,
+              ),
+            ),
+          ] else
+            SelectableText(
+              hasValue ? visibleGs1Value(value) : 'Nada lido ainda.',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: hasValue
+                    ? AppColors.textPrimary
+                    : AppColors.searchSubmenu,
+                height: 1.25,
+              ),
+            ),
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: onSave,
@@ -594,6 +617,8 @@ class _SavedScanTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final parsedCode = scan.parsedCode;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -648,18 +673,79 @@ class _SavedScanTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 7),
-                SelectableText(
-                  scan.value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
+                if (parsedCode != null)
+                  _ParsedGs1Fields(code: parsedCode, compact: true)
+                else
+                  SelectableText(
+                    visibleGs1Value(scan.value),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ParsedGs1Fields extends StatelessWidget {
+  const _ParsedGs1Fields({required this.code, this.compact = false});
+
+  final ParsedGs1Code code;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = code.displayFields;
+
+    return Column(
+      children: [
+        for (var index = 0; index < fields.length; index++) ...[
+          if (index > 0) const SizedBox(height: 6),
+          _ParsedGs1FieldRow(field: fields[index], compact: compact),
+        ],
+      ],
+    );
+  }
+}
+
+class _ParsedGs1FieldRow extends StatelessWidget {
+  const _ParsedGs1FieldRow({required this.field, required this.compact});
+
+  final ParsedGs1Field field;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: AppColors.searchSubmenu,
+      fontWeight: FontWeight.w800,
+      height: 1.2,
+    );
+    final valueStyle =
+        (compact
+                ? Theme.of(context).textTheme.bodySmall
+                : Theme.of(context).textTheme.bodyMedium)
+            ?.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: compact ? 86 : 104,
+          child: Text(field.label, style: labelStyle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: SelectableText(field.value, style: valueStyle)),
+      ],
     );
   }
 }
@@ -733,14 +819,14 @@ class _ScannerStartPanel extends StatelessWidget {
             ),
           ),
           Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(18),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 76,
-                    height: 76,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.10),
                       border: Border.all(color: Colors.white24),
@@ -749,10 +835,10 @@ class _ScannerStartPanel extends StatelessWidget {
                     child: const Icon(
                       Icons.qr_code_scanner,
                       color: Colors.white,
-                      size: 42,
+                      size: 36,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   const Text(
                     'Scanner pronto',
                     textAlign: TextAlign.center,
@@ -762,7 +848,7 @@ class _ScannerStartPanel extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 5),
                   const Text(
                     'QR Code e Data Matrix',
                     textAlign: TextAlign.center,
@@ -771,7 +857,7 @@ class _ScannerStartPanel extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
                   FilledButton.icon(
                     onPressed: onStart,
                     icon: const Icon(Icons.camera_alt),
