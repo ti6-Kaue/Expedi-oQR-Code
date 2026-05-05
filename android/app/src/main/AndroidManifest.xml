@@ -1,3 +1,5 @@
+<!-- Manifest Android principal.
+     Observacao: aqui ficam permissoes de camera/internet e ajustes da Activity. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />

@@ -1,3 +1,5 @@
+# Regras de analise do Dart.
+# Observacao: o Flutter usa este arquivo para avisar sobre erros e boas praticas.
 # This file configures the analyzer, which statically analyzes Dart code to
 # check for errors, warnings, and lints.
 #

@@ -1,3 +1,5 @@
+# Configuracao principal do Flutter.
+# Observacao: aqui ficam nome do app, versao e dependencias Dart/Flutter.
 name: qr_datamatrix_reader
 description: "Simple Flutter app to read QR Code and Data Matrix labels."
 # The following line prevents the package from being accidentally published to

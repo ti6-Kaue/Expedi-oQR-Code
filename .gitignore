@@ -1,3 +1,5 @@
+# Arquivos ignorados pelo Git.
+# Observacao: caches, builds, logs e APKs gerados nao precisam ir para o repositorio.
 # Miscellaneous
 *.class
 *.log
@@ -12,6 +14,7 @@
 .swiftpm/
 migrate_working_dir/
 .api-server.*
+.api-validate.*
 .apk-server.*
 .flutter-web-server.*
 api/node_modules/
@@ -37,6 +40,7 @@ api/.env
 .pub/
 /build/
 /coverage/
+/dist/
 
 # Symbolication related
 app.*.symbols

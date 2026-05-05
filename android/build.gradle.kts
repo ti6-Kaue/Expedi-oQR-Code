@@ -1,3 +1,5 @@
+// Build Gradle raiz do Android.
+// Observacao: configuracoes compartilhadas para o projeto Android gerado pelo Flutter.
 allprojects {
     repositories {
         google()

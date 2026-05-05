@@ -1,3 +1,5 @@
+// Build Gradle do modulo Android app.
+// Observacao: aqui ficam applicationId, minSdk, versao e assinatura debug.
 plugins {
     id("com.android.application")
     id("kotlin-android")

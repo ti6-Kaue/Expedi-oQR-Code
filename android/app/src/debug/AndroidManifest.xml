@@ -1,3 +1,5 @@
+<!-- Manifest usado apenas em modo debug.
+     Observacao: o Flutter usa INTERNET aqui para hot reload e debug. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The INTERNET permission is required for development. Specifically,
          the Flutter tool needs it to communicate with the running application

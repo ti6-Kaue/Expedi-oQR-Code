@@ -2,6 +2,19 @@
 
 API simples para salvar leituras do app Flutter em MySQL no Railway.
 
+## Estrutura
+
+```text
+src/
+  app.js              Express app e middlewares
+  config.js           Leitura de porta e variaveis do MySQL
+  database.js         Pool MySQL e criacao da tabela
+  server.js           Entrada do servidor
+  routes/scans.js     Endpoints de leituras
+```
+
+Arquivos `package.json` e `package-lock.json` nao recebem comentarios dentro do codigo porque JSON nao aceita comentarios.
+
 ## Variaveis no Railway
 
 Use uma destas opcoes:

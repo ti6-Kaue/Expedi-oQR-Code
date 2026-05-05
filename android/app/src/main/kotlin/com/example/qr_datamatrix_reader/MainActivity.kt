@@ -1,3 +1,5 @@
+// Activity Android principal do app Flutter.
+// Observacao: aqui fica o canal nativo que toca beep de leitura e som de erro.
 package com.example.qr_datamatrix_reader
 
 import android.media.AudioManager

@@ -1,3 +1,5 @@
+// Configuracao raiz do Gradle Android.
+// Observacao: aponta para o SDK do Flutter e registra plugins Android/Kotlin.
 pluginManagement {
     val flutterSdkPath =
         run {
