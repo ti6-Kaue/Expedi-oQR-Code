@@ -10,10 +10,28 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '64kb' }));
 
+const mysqlUrl =
+  process.env.MYSQL_URL ||
+  process.env.MYSQL_PUBLIC_URL ||
+  process.env.MYSQL_PRIVATE_URL ||
+  process.env.DATABASE_URL;
+
+const hasSeparateMysqlConfig =
+  process.env.MYSQLHOST ||
+  process.env.MYSQL_HOST ||
+  process.env.MYSQLUSER ||
+  process.env.MYSQL_USER;
+
+if (!mysqlUrl && !hasSeparateMysqlConfig) {
+  throw new Error(
+    'Configure MYSQL_URL, MYSQL_PUBLIC_URL ou as variaveis MYSQLHOST/MYSQLUSER/MYSQLPASSWORD/MYSQLDATABASE no servico da API.',
+  );
+}
+
 const pool = mysql.createPool(
-  process.env.MYSQL_URL || process.env.DATABASE_URL
+  mysqlUrl
     ? {
-        uri: process.env.MYSQL_URL || process.env.DATABASE_URL,
+        uri: mysqlUrl,
         waitForConnections: true,
         connectionLimit: 10,
       }
