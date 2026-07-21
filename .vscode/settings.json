@@ -1,0 +1,11 @@
+{
+  "explorer.compactFolders": true,
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/.gradle": true,
+    "**/build": true,
+    "**/.flutter-plugins-dependencies": true,
+    "**/.metadata": true,
+    "**/devtools_options.yaml": true
+  }
+}

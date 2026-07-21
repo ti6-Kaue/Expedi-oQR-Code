@@ -1,70 +1,27 @@
-# API QR/DataMatrix
+# API local do leitor
 
-API simples para salvar leituras do app Flutter em MySQL no Railway.
+Toda a configuração fica no arquivo `../configuracao.env`.
 
-## Estrutura
+1. Preencha o IP deste computador e os dados do MySQL em `configuracao.env`.
+2. Execute `npm install` nesta pasta na primeira instalação.
+3. Abra `iniciar_api.cmd` e mantenha a janela aberta.
+4. Para gerar o aplicativo com o IP configurado, abra `../gerar_apk.cmd`.
 
-```text
-src/
-  app.js              Express app e middlewares
-  config.js           Leitura de porta e variaveis do MySQL
-  database.js         Pool MySQL e criacao da tabela
-  server.js           Entrada do servidor
-  routes/scans.js     Endpoints de leituras
-```
+A API cria a tabela `scans` automaticamente. Teste a conexão abrindo
+`http://localhost:3000/health`; o retorno esperado é `{ "ok": true }`.
 
-Arquivos `package.json` e `package-lock.json` nao recebem comentarios dentro do codigo porque JSON nao aceita comentarios.
+Nos celulares, use o IPv4 deste computador, por exemplo
+`http://192.168.1.50:3000`, nunca `localhost`.
 
-## Variaveis no Railway
+## Rotas disponiveis
 
-Use uma destas opcoes:
+| Metodo | Rota | O que faz |
+| --- | --- | --- |
+| GET | `/` | Mostra a pagina para baixar o aplicativo. |
+| GET | `/download` | Baixa o APK no celular. |
+| GET | `/health` | Testa se a API consegue acessar o MySQL. |
+| GET | `/scans` | Lista as 100 leituras mais recentes. |
+| POST | `/scans` | Salva uma nova leitura no banco. |
 
-```text
-MYSQL_URL=mysql://usuario:senha@host:3306/banco
-```
-
-Ou as variaveis separadas que o Railway cria para MySQL:
-
-```text
-MYSQLHOST
-MYSQLPORT
-MYSQLUSER
-MYSQLPASSWORD
-MYSQLDATABASE
-```
-
-## Endpoints
-
-```text
-GET /health
-GET /scans
-POST /scans
-```
-
-Body do `POST /scans`:
-
-```json
-{
-  "value": "01079087187518382407322\u001d10L2250917002-450-A\u001d921\u001d1125091793297\u001d94293\u001d95P",
-  "format": "QR Code",
-  "gtin": "07908718751838",
-  "produto": "7322",
-  "lote": "L2250917002-450-A",
-  "quantidade": "1",
-  "data_fab": "250917",
-  "caixa": "297",
-  "qtd_etiqueta": "293",
-  "tipo": "P"
-}
-```
-
-Se o app enviar apenas `value` e `format`, a API tambem tenta separar os campos
-GS1 antes de gravar no MySQL.
-
-## Flutter
-
-Depois de subir a API no Railway, gere o APK com a URL publica:
-
-```powershell
-flutter build apk --debug --dart-define=API_BASE_URL=https://sua-api.up.railway.app
-```
+O arquivo `src/routes/scans.js` possui observacoes em cada etapa para explicar
+a validacao dos campos, a gravacao no MySQL e a resposta devolvida ao aplicativo.
