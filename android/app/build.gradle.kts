@@ -1,18 +1,21 @@
 // Build Gradle do modulo Android app.
 // Observacao: aqui ficam applicationId, minSdk, versao e assinatura debug.
+// Comunica-se com: pubspec.yaml, Gradle Wrapper e pasta android/app/src.
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // O plugin Gradle do Flutter deve ser aplicado depois dos plugins Android e Kotlin.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
+    // namespace identifica as classes Android deste projeto.
     namespace = "com.example.qr_datamatrix_reader"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Java 17 e usado para compilar os plugins Android.
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -22,25 +25,27 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // TODO: Defina um identificador unico para o aplicativo.
         applicationId = "com.example.qr_datamatrix_reader"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Estes valores podem ser ajustados conforme as necessidades do aplicativo.
+        // Mais informacoes: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+        // versionCode e versionName vem do campo version em pubspec.yaml.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // TODO: Adicione uma configuracao de assinatura para a versao de producao.
+            // Por enquanto, usa as chaves de depuracao para permitir `flutter run --release`.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
 flutter {
+    // Informa que o projeto Flutter esta duas pastas acima de android/app.
     source = "../.."
 }

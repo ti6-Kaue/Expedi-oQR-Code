@@ -1,9 +1,9 @@
 <!-- Manifest usado em modo profile.
      Observacao: usado para medir performance antes de release. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The INTERNET permission is required for development. Specifically,
-         the Flutter tool needs it to communicate with the running application
-         to allow setting breakpoints, to provide hot reload, etc.
+    <!-- A permissao INTERNET e necessaria durante a avaliacao de desempenho.
+         A ferramenta Flutter a utiliza para se comunicar com o aplicativo,
+         coletar informacoes e acompanhar a execucao.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
 </manifest>

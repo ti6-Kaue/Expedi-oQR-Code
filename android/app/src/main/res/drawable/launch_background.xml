@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Fundo da tela de abertura Android.
      Observacao: aparece enquanto o Flutter esta carregando. -->
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Modifique este arquivo para personalizar a tela de abertura. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/white" />
 
-    <!-- You can insert your own image assets here -->
+    <!-- Voce pode inserir suas imagens aqui. -->
     <!-- <item>
         <bitmap
             android:gravity="center"
