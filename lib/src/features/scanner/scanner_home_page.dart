@@ -1,7 +1,13 @@
 // Tela principal do scanner.
 // Observacao: aqui ficam layout, camera, leitura QR/DataMatrix, botao salvar e historico.
+// Comunica-se com:
+// - mobile_scanner para acessar a camera;
+// - models para interpretar e representar os codigos;
+// - services para historico, API e sons;
+// - utils para formatar tipo do codigo e data.
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -21,18 +27,22 @@ class ScannerHomePage extends StatefulWidget {
 }
 
 class _ScannerHomePageState extends State<ScannerHomePage> {
+  // Controller liga a interface a camera e limita os formatos aceitos.
   final _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     formats: const [BarcodeFormat.qrCode, BarcodeFormat.dataMatrix],
   );
+  // Servico responsavel pelo historico salvo dentro do aparelho.
   final _localStorage = LocalScanStorage();
 
   List<SavedScan> _savedScans = <SavedScan>[];
   Barcode? _lastBarcode;
+  ScanSound _scanSound = ScanSound.beep;
   bool _cameraOpen = false;
   bool _isSaving = false;
 
   String? get _currentValue {
+    // rawValue preserva o codigo original; displayValue funciona como alternativa.
     final value = _lastBarcode?.rawValue ?? _lastBarcode?.displayValue;
     if (value == null || value.trim().isEmpty) {
       return null;
@@ -42,17 +52,21 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
 
   @override
   void initState() {
+    // Ao abrir a tela, recupera historico e preferencia de som em paralelo.
     super.initState();
     unawaited(_loadSavedScans());
+    unawaited(_loadScanSound());
   }
 
   @override
   void dispose() {
+    // Libera a camera quando a tela e fechada.
     unawaited(_controller.dispose());
     super.dispose();
   }
 
   Future<void> _loadSavedScans() async {
+    // Busca o historico no LocalScanStorage e atualiza a lista visual.
     final scans = await _localStorage.load();
 
     if (!mounted) {
@@ -64,9 +78,34 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
     });
   }
 
+  Future<void> _loadScanSound() async {
+    // Recupera a ultima opcao selecionada no menu de volume.
+    final soundId = await _localStorage.loadScanSound();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _scanSound = ScanSound.fromId(soundId);
+    });
+  }
+
+  Future<void> _selectScanSound(ScanSound sound) async {
+    // Atualiza o menu, salva a preferencia e toca uma previa do som.
+    setState(() {
+      _scanSound = sound;
+    });
+
+    await _localStorage.saveScanSound(sound.id);
+    await ScannerSoundFeedback.scan(sound);
+  }
+
   void _handleDetect(BarcodeCapture capture) {
+    // MobileScanner chama este metodo quando encontra um ou mais codigos.
     Barcode? foundBarcode;
 
+    // Usa o primeiro codigo que possuir algum conteudo valido.
     for (final barcode in capture.barcodes) {
       final value = barcode.rawValue ?? barcode.displayValue;
       if (value != null && value.trim().isNotEmpty) {
@@ -79,7 +118,7 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
       return;
     }
 
-    unawaited(ScannerSoundFeedback.scan());
+    unawaited(ScannerSoundFeedback.scan(_scanSound));
 
     setState(() {
       _lastBarcode = foundBarcode;
@@ -87,6 +126,8 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
   }
 
   Future<void> _saveCurrent() async {
+    // Salva primeiro no aparelho e depois tenta enviar para a API.
+    // Assim a leitura nao e perdida quando o banco estiver indisponivel.
     final currentValue = _currentValue;
     final barcode = _lastBarcode;
     if (currentValue == null || barcode == null || _isSaving) {
@@ -104,8 +145,10 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
         savedAt: DateTime.now(),
       );
       final nextScans = <SavedScan>[scan, ..._savedScans];
-      var saveMessage = 'Leitura salva no celular.';
+      final localDevice = kIsWeb ? 'navegador' : 'celular';
+      var saveMessage = 'Leitura salva no $localDevice.';
 
+      // Primeira etapa: historico local.
       await _localStorage.saveAll(nextScans);
 
       if (!mounted) {
@@ -117,13 +160,14 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
       });
 
       if (RemoteScanService.isConfigured) {
+        // Segunda etapa: POST /scans na API local.
         try {
           await RemoteScanService.save(scan);
-          saveMessage = 'Leitura salva no celular e no banco.';
+          saveMessage = 'Leitura salva no $localDevice e no banco.';
         } on TimeoutException {
-          saveMessage = 'Salva no celular. Banco demorou para responder.';
+          saveMessage = 'Salva no $localDevice. Banco demorou para responder.';
         } on Object catch (error) {
-          saveMessage = 'Salva no celular. Banco com erro: $error';
+          saveMessage = 'Salva no $localDevice. Banco com erro: $error';
         }
       }
 
@@ -144,6 +188,7 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
   }
 
   Future<void> _clearSavedScans() async {
+    // Limpa somente o historico do aparelho; nao apaga registros do MySQL.
     await _localStorage.clear();
 
     if (!mounted) {
@@ -156,6 +201,7 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
   }
 
   Future<void> _runCameraAction(Future<void> Function() action) async {
+    // Centraliza o tratamento de erro do flash e da troca de camera.
     try {
       await action();
     } on MobileScannerException catch (error) {
@@ -171,6 +217,7 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Monta cabecalho, area da camera, ultima leitura e historico.
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -183,7 +230,9 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
               child: _AppHeader(
                 savedCount: _savedScans.length,
                 cameraOpen: _cameraOpen,
+                scanSound: _scanSound,
                 controller: _controller,
+                onSelectScanSound: _selectScanSound,
                 onToggleTorch: () => _runCameraAction(_controller.toggleTorch),
                 onSwitchCamera: () =>
                     _runCameraAction(_controller.switchCamera),
@@ -245,23 +294,30 @@ class _ScannerHomePageState extends State<ScannerHomePage> {
   }
 }
 
+// Cabecalho com logo, contador, escolha de som, flash e troca de camera.
 class _AppHeader extends StatelessWidget {
   const _AppHeader({
     required this.savedCount,
     required this.cameraOpen,
+    required this.scanSound,
     required this.controller,
+    required this.onSelectScanSound,
     required this.onToggleTorch,
     required this.onSwitchCamera,
   });
 
   final int savedCount;
   final bool cameraOpen;
+  final ScanSound scanSound;
   final MobileScannerController controller;
+  final ValueChanged<ScanSound> onSelectScanSound;
   final VoidCallback onToggleTorch;
   final VoidCallback onSwitchCamera;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Row(
       children: [
         Container(
@@ -279,7 +335,7 @@ class _AppHeader extends StatelessWidget {
               ),
             ],
           ),
-          child: Image.asset('Tdetalmax.png', fit: BoxFit.cover),
+          child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -287,7 +343,7 @@ class _AppHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Leitor QR/DataMatrix',
+                'Leitor QR Code',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -315,6 +371,46 @@ class _AppHeader extends StatelessWidget {
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                PopupMenuButton<ScanSound>(
+                  tooltip: 'Som da leitura: ${scanSound.label}',
+                  initialValue: scanSound,
+                  onSelected: onSelectScanSound,
+                  icon: Icon(
+                    scanSound == ScanSound.silent
+                        ? Icons.volume_off
+                        : Icons.volume_up,
+                  ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.surface,
+                    foregroundColor: AppColors.menu,
+                    fixedSize: const Size.square(44),
+                    shadowColor: Colors.black.withValues(alpha: 0.08),
+                    elevation: 1,
+                  ),
+                  itemBuilder: (context) => [
+                    for (final sound in ScanSound.values)
+                      PopupMenuItem<ScanSound>(
+                        value: sound,
+                        child: Row(
+                          children: [
+                            Icon(
+                              sound == ScanSound.silent
+                                  ? Icons.volume_off
+                                  : Icons.music_note,
+                              color: AppColors.menu,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(sound.label),
+                            if (sound == scanSound) ...[
+                              const Spacer(),
+                              const Icon(Icons.check, color: AppColors.menu),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 6),
                 _HeaderIconButton(
                   tooltip: 'Flash',
                   onPressed: torchAvailable && cameraOpen
@@ -337,6 +433,7 @@ class _AppHeader extends StatelessWidget {
   }
 }
 
+// Padroniza o visual dos botoes pequenos do cabecalho.
 class _HeaderIconButton extends StatelessWidget {
   const _HeaderIconButton({
     required this.tooltip,
@@ -369,6 +466,7 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
+// Moldura que alterna entre o botao inicial e a imagem ao vivo da camera.
 class _ScannerFrame extends StatelessWidget {
   const _ScannerFrame({
     required this.cameraOpen,
@@ -432,6 +530,7 @@ class _ScannerFrame extends StatelessWidget {
   }
 }
 
+// Cartao da ultima leitura, incluindo campos GS1 e botao Salvar leitura.
 class _CurrentReadout extends StatelessWidget {
   const _CurrentReadout({
     required this.barcode,
@@ -553,6 +652,7 @@ class _CurrentReadout extends StatelessWidget {
   }
 }
 
+// Titulo do historico, contador de itens e botao Limpar.
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
@@ -611,6 +711,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+// Cartao individual de uma leitura recuperada do armazenamento local.
 class _SavedScanTile extends StatelessWidget {
   const _SavedScanTile({required this.scan});
 
@@ -693,6 +794,7 @@ class _SavedScanTile extends StatelessWidget {
   }
 }
 
+// Cria uma linha visual para cada campo GS1 reconhecido.
 class _ParsedGs1Fields extends StatelessWidget {
   const _ParsedGs1Fields({required this.code, this.compact = false});
 
@@ -714,6 +816,7 @@ class _ParsedGs1Fields extends StatelessWidget {
   }
 }
 
+// Mostra o nome e o valor de um campo GS1.
 class _ParsedGs1FieldRow extends StatelessWidget {
   const _ParsedGs1FieldRow({required this.field, required this.compact});
 
@@ -751,6 +854,7 @@ class _ParsedGs1FieldRow extends StatelessWidget {
   }
 }
 
+// Mensagem exibida quando ainda nao existe historico local.
 class _EmptySavedState extends StatelessWidget {
   const _EmptySavedState();
 
@@ -793,6 +897,7 @@ class _EmptySavedState extends StatelessWidget {
   }
 }
 
+// Tela escura inicial que solicita uma acao antes de abrir a camera.
 class _ScannerStartPanel extends StatelessWidget {
   const _ScannerStartPanel({required this.onStart});
 
@@ -878,6 +983,7 @@ class _ScannerStartPanel extends StatelessWidget {
   }
 }
 
+// Etiqueta visual que informa os formatos QR Code e Data Matrix.
 class _FormatChip extends StatelessWidget {
   const _FormatChip({required this.label});
 
@@ -905,6 +1011,7 @@ class _FormatChip extends StatelessWidget {
   }
 }
 
+// Etiqueta pequena usada para mostrar o formato da leitura.
 class _InlineBadge extends StatelessWidget {
   const _InlineBadge({required this.label});
 
@@ -932,6 +1039,7 @@ class _InlineBadge extends StatelessWidget {
   }
 }
 
+// Painel mostrado quando a camera nao possui permissao ou esta indisponivel.
 class _ScannerError extends StatefulWidget {
   const _ScannerError({required this.error});
 
@@ -982,6 +1090,7 @@ class _ScannerErrorState extends State<_ScannerError> {
   }
 }
 
+// Camada desenhada por cima da camera para orientar o posicionamento do codigo.
 class _ScannerOverlay extends StatelessWidget {
   const _ScannerOverlay();
 
@@ -991,6 +1100,7 @@ class _ScannerOverlay extends StatelessWidget {
   }
 }
 
+// Desenha a area escurecida, linha guia e cantos laranja do scanner.
 class _ScannerOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

@@ -1,5 +1,6 @@
 // Configuracao global do frontend Flutter.
 // Observacao: aqui ficam tema, cores globais, estilo dos botoes e tela inicial.
+// Comunica-se com: app_colors.dart e scanner_home_page.dart.
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
@@ -10,6 +11,7 @@ class QrDataMatrixApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Transforma as cores da marca em um esquema usado pelos componentes Material.
     final colorScheme = ColorScheme.fromSeed(seedColor: AppColors.menu)
         .copyWith(
           primary: AppColors.menu,
@@ -29,9 +31,10 @@ class QrDataMatrixApp extends StatelessWidget {
           outlineVariant: AppColors.footerMuted,
         );
 
+    // MaterialApp configura o titulo, tema e a primeira tela do aplicativo.
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Leitor QR/DataMatrix',
+      title: 'Leitor QR Code',
       theme: ThemeData(
         colorScheme: colorScheme,
         scaffoldBackgroundColor: AppColors.background,
@@ -53,6 +56,7 @@ class QrDataMatrixApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+      // ScannerHomePage sera exibida assim que o app terminar de iniciar.
       home: const ScannerHomePage(),
     );
   }

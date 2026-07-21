@@ -1,3 +1,6 @@
+// Interpreta codigos GS1 lidos pelo scanner.
+// Observacao: cada identificador de aplicacao (AI) informa qual dado vem depois.
+// Comunica-se com: saved_scan.dart e scanner_home_page.dart.
 class ParsedGs1Code {
   const ParsedGs1Code({
     required this.rawValue,
@@ -12,6 +15,7 @@ class ParsedGs1Code {
   });
 
   static ParsedGs1Code? tryParse(String rawValue) {
+    // Normaliza caracteres especiais e separa os campos conhecidos.
     final fields = _parseFields(_normalizeRawValue(rawValue));
     final parsedCode = ParsedGs1Code(
       rawValue: rawValue,
@@ -25,6 +29,7 @@ class ParsedGs1Code {
       type: fields['95'],
     );
 
+    // null indica que o texto lido nao possui nenhum campo GS1 reconhecido.
     return parsedCode.hasKnownFields ? parsedCode : null;
   }
 
@@ -41,6 +46,7 @@ class ParsedGs1Code {
   bool get hasKnownFields => displayFields.isNotEmpty;
 
   List<ParsedGs1Field> get displayFields {
+    // Monta somente os campos preenchidos para a tela nao mostrar linhas vazias.
     return <ParsedGs1Field>[
       if (_hasValue(gtin)) ParsedGs1Field('GTIN', gtin!),
       if (_hasValue(product)) ParsedGs1Field('Produto', product!),
@@ -56,6 +62,7 @@ class ParsedGs1Code {
   }
 
   Map<String, Object?> toJsonFields() {
+    // Usa os mesmos nomes esperados por POST /scans na API.
     return <String, Object?>{
       if (_hasValue(gtin)) 'gtin': gtin,
       if (_hasValue(product)) 'produto': product,
@@ -70,6 +77,7 @@ class ParsedGs1Code {
 }
 
 class ParsedGs1Field {
+  // Par simples de rotulo e valor usado pelos componentes da interface.
   const ParsedGs1Field(this.label, this.value);
 
   final String label;
@@ -77,11 +85,14 @@ class ParsedGs1Field {
 }
 
 String visibleGs1Value(String rawValue) {
+  // Torna o separador invisivel GS legivel para o usuario.
   return rawValue.replaceAll(_groupSeparator, ' <GS> ');
 }
 
 const _groupSeparator = '\u001D';
 
+// Definicoes GS1 aceitas pelo projeto.
+// fixedLength exige tamanho exato; maxLength aceita tamanho variavel.
 const _definitions = <_Gs1AiDefinition>[
   _Gs1AiDefinition('240', maxLength: 30),
   _Gs1AiDefinition('01', fixedLength: 14),
@@ -94,6 +105,7 @@ const _definitions = <_Gs1AiDefinition>[
 ];
 
 Map<String, String> _parseFields(String value) {
+  // Percorre o codigo da esquerda para a direita procurando cada AI.
   final fields = <String, String>{};
   var index = 0;
 
@@ -128,6 +140,7 @@ Map<String, String> _parseFields(String value) {
 }
 
 _Gs1AiDefinition? _definitionAt(String value, int index) {
+  // Descobre qual AI comeca na posicao atual.
   for (final definition in _definitions) {
     if (value.startsWith(definition.ai, index)) {
       return definition;
@@ -138,6 +151,7 @@ _Gs1AiDefinition? _definitionAt(String value, int index) {
 }
 
 _ParsedFieldValue? _readFixedValue(String value, int index, int length) {
+  // Le exatamente a quantidade de caracteres definida pelo padrao GS1.
   final end = index + length;
   if (end > value.length) {
     return null;
@@ -147,6 +161,7 @@ _ParsedFieldValue? _readFixedValue(String value, int index, int length) {
 }
 
 _ParsedFieldValue _readVariableValue(String value, int index, int maxLength) {
+  // Le ate encontrar o separador GS ou o final do codigo.
   final nextSeparator = value.indexOf(_groupSeparator, index);
   final end = nextSeparator == -1 ? value.length : nextSeparator;
   final fieldValue = value.substring(index, end);
@@ -160,6 +175,7 @@ _ParsedFieldValue _readVariableValue(String value, int index, int maxLength) {
 }
 
 String _normalizeRawValue(String rawValue) {
+  // Remove o identificador do leitor e converte representacoes textuais de GS.
   final trimmedValue = rawValue.trim();
   final withoutSymbologyIdentifier =
       trimmedValue.startsWith(']') && trimmedValue.length > 3
@@ -174,10 +190,12 @@ String _normalizeRawValue(String rawValue) {
 }
 
 bool _hasValue(String? value) {
+  // Evita enviar ou mostrar campos nulos e vazios.
   return value != null && value.trim().isNotEmpty;
 }
 
 class _Gs1AiDefinition {
+  // Configuracao interna de um identificador de aplicacao GS1.
   const _Gs1AiDefinition(this.ai, {this.fixedLength, this.maxLength});
 
   final String ai;
@@ -186,6 +204,7 @@ class _Gs1AiDefinition {
 }
 
 class _ParsedFieldValue {
+  // Guarda o texto lido e a posicao onde a proxima leitura deve continuar.
   const _ParsedFieldValue(this.value, this.nextIndex);
 
   final String value;

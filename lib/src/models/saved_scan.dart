@@ -1,5 +1,7 @@
 // Modelo de uma leitura salva.
 // Observacao: usado tanto para salvar localmente quanto para enviar para a API.
+// Comunica-se com: parsed_gs1_code.dart, local_scan_storage.dart,
+// remote_scan_service.dart e scanner_home_page.dart.
 import 'parsed_gs1_code.dart';
 
 class SavedScan {
@@ -10,6 +12,7 @@ class SavedScan {
   });
 
   factory SavedScan.fromJson(Map<String, Object?> json) {
+    // Recria uma leitura que estava armazenada como JSON no aparelho.
     final savedAtValue = json['savedAt'] as String?;
 
     return SavedScan(
@@ -26,8 +29,10 @@ class SavedScan {
   final String format;
   final DateTime savedAt;
 
+  // Tenta interpretar value como um codigo GS1.
   ParsedGs1Code? get parsedCode => ParsedGs1Code.tryParse(value);
 
+  // Formato usado pelo historico local no SharedPreferences.
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'value': value,
@@ -36,6 +41,7 @@ class SavedScan {
     };
   }
 
+  // Formato enviado no corpo JSON de POST /scans.
   Map<String, Object?> toApiJson() {
     final parsed = parsedCode;
 
