@@ -1,6 +1,6 @@
 # Arquivos ignorados pelo Git.
 # Observacao: caches, builds, logs e APKs gerados nao precisam ir para o repositorio.
-# Miscellaneous
+# Arquivos diversos
 *.class
 *.log
 *.pyc
@@ -17,21 +17,18 @@ migrate_working_dir/
 .api-validate.*
 .apk-server.*
 .flutter-web-server.*
-api/node_modules/
-api/.env
 
-# IntelliJ related
+# Arquivos relacionados ao IntelliJ
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# A pasta .vscode contem configuracoes de inicializacao e tarefas do VS Code.
+# Caso queira versiona-la, remova o comentario da linha abaixo.
 #.vscode/
 
-# Flutter/Dart/Pub related
+# Arquivos relacionados ao Flutter, Dart e Pub
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -42,14 +39,16 @@ api/.env
 /coverage/
 /dist/
 /ARQUIVOS_GERADOS/
+/api/node_modules/
+/configuracao.env
 
-# Symbolication related
+# Arquivos relacionados a simbolizacao
 app.*.symbols
 
-# Obfuscation related
+# Arquivos relacionados a ofuscacao
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# O Android Studio armazena artefatos de compilacao nestas pastas
 /android/app/debug
 /android/app/profile
 /android/app/release
