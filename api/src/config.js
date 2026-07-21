@@ -1,41 +1,46 @@
-// Configuracao da API.
-// Observacao: le a porta e as variaveis de conexao MySQL vindas do Railway.
-export const port = process.env.PORT || 3000;
+// Configuracao central da API.
+// Observacao: le IP, porta e dados do MySQL no arquivo configuracao.env.
+// Comunica-se com: configuracao.env, database.js e server.js.
+import dotenv from 'dotenv';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Descobre o caminho da raiz sem depender da pasta usada para iniciar o Node.
+const currentDirectory = dirname(fileURLToPath(import.meta.url));
+const configurationPath = resolve(
+  currentDirectory,
+  '..',
+  '..',
+  'configuracao.env',
+);
+// Carrega cada linha CHAVE=VALOR em process.env.
+const configuration = dotenv.config({ path: configurationPath });
+
+if (configuration.error) {
+  throw new Error(
+    `Arquivo de configuração não encontrado: ${configurationPath}`,
+  );
+}
+
+export const port = Number(process.env.PORT || 3000);
 
 export function mysqlPoolConfig() {
-  const mysqlUrl =
-    process.env.MYSQL_URL ||
-    process.env.MYSQL_PUBLIC_URL ||
-    process.env.MYSQL_PRIVATE_URL ||
-    process.env.DATABASE_URL;
+  // Reune os dados que mysql2 precisa para criar o pool de conexoes.
+  const database = process.env.MYSQL_DATABASE;
 
-  const hasSeparateMysqlConfig =
-    process.env.MYSQLHOST ||
-    process.env.MYSQL_HOST ||
-    process.env.MYSQLUSER ||
-    process.env.MYSQL_USER;
-
-  if (!mysqlUrl && !hasSeparateMysqlConfig) {
-    throw new Error(
-      'Configure MYSQL_URL, MYSQL_PUBLIC_URL ou as variaveis MYSQLHOST/MYSQLUSER/MYSQLPASSWORD/MYSQLDATABASE no servico da API.',
-    );
-  }
-
-  if (mysqlUrl) {
-    return {
-      uri: mysqlUrl,
-      waitForConnections: true,
-      connectionLimit: 10,
-    };
+  if (!database) {
+    throw new Error('Configure MYSQL_DATABASE no arquivo configuracao.env.');
   }
 
   return {
-    host: process.env.MYSQLHOST || process.env.MYSQL_HOST || 'localhost',
-    port: Number(process.env.MYSQLPORT || process.env.MYSQL_PORT || 3306),
-    user: process.env.MYSQLUSER || process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD || '',
-    database: process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE,
+    host: process.env.MYSQL_HOST || '127.0.0.1',
+    port: Number(process.env.MYSQL_PORT || 3306),
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || '',
+    database,
+    // Aguarda uma conexao livre quando todas estiverem ocupadas.
     waitForConnections: true,
+    // Permite no maximo dez conexoes simultaneas com o MySQL.
     connectionLimit: 10,
   };
 }
