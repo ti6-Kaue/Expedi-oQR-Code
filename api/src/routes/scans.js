@@ -21,7 +21,7 @@ scansRouter.get('/', async (request, response, next) => {
               scan_quantidade AS quantidade, scan_data_fab AS data_fab,
               scan_caixa AS caixa, scan_qtd_etiqueta AS qtd_etiqueta,
               scan_tipo AS tipo, scan_created_at AS created_at
-       FROM scans ORDER BY scan_id DESC LIMIT 100`,
+        FROM scans ORDER BY scan_id DESC LIMIT 100`,
     );
     // Retorna as leituras no formato JSON para quem chamou a API.
     response.json(rows);
@@ -79,7 +79,7 @@ scansRouter.post('/', async (request, response, next) => {
               scan_quantidade AS quantidade, scan_data_fab AS data_fab,
               scan_caixa AS caixa, scan_qtd_etiqueta AS qtd_etiqueta,
               scan_tipo AS tipo, scan_created_at AS created_at
-       FROM scans WHERE scan_id = ?`,
+        FROM scans WHERE scan_id = ?`,
       [result.insertId],
     );
 
