@@ -1,6 +1,5 @@
-# Identificacao do pacote Dart/Flutter.
-name: qr_datamatrix_reader
-description: Leitor de QR Code e Data Matrix com historico local.
+name: layout_base
+description: Base Flutter com layout visual neutro.
 publish_to: none
 # Versao visivel + numero interno usados tambem pelo Android.
 version: 1.0.0+1
@@ -9,19 +8,8 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
-  # Componentes visuais e recursos principais do Flutter.
   flutter:
     sdk: flutter
-  # Envia as leituras em JSON para a API local.
-  http: ^1.6.0
-  # Abre a camera e reconhece QR Code/Data Matrix.
-  mobile_scanner: ^7.2.0
-  # Guarda historico e preferencia de som no aparelho.
-  shared_preferences: ^2.5.5
 
 flutter:
-  # Inclui a fonte de icones Material no aplicativo.
   uses-material-design: true
-  # Imagens empacotadas dentro do APK e da versao web.
-  assets:
-    - imagens/logo.png

@@ -1,19 +1,11 @@
 {
-  "name": "Talmax QR",
-  "short_name": "Talmax QR",
+  "name": "Layout Base",
+  "short_name": "Layout Base",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F1F4F9",
   "theme_color": "#374C92",
-  "description": "Leitor de QR Code e Data Matrix com histórico local.",
+  "description": "Base visual para um novo projeto Flutter.",
   "orientation": "any",
-  "prefer_related_applications": false,
-  "icons": [
-    {
-      "src": "assets/imagens/logo.png",
-      "sizes": "703x704",
-      "type": "image/png",
-      "purpose": "any"
-    }
-  ]
+  "prefer_related_applications": false
 }
