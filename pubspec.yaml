@@ -24,4 +24,4 @@ flutter:
   uses-material-design: true
   # Imagens empacotadas dentro do APK e da versao web.
   assets:
-    - assets/images/logo.png
+    - imagens/logo.png

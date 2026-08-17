@@ -67,9 +67,9 @@ lib/main.dart
 
 ## Configuracao e comandos
 
-- `configuracao.env`: unico local com IP, porta e dados do MySQL.
-- `api/iniciar_api.cmd`: le a configuracao e inicia a API.
-- `gerar_apk.cmd`: le o mesmo IP/porta e gera o APK.
+- `suporte/config/configuracao.env`: unico local com IP, porta e dados do MySQL.
+- `suporte/scripts/iniciar_api.cmd`: le a configuracao e inicia a API.
+- `suporte/scripts/gerar_apk.cmd`: le o mesmo IP/porta e gera o APK.
 - `pubspec.yaml`: dependencias e imagens usadas pelo Flutter.
 - `api/package.json`: dependencias da API Node.js.
 
@@ -89,6 +89,6 @@ lib/main.dart
 - Tela e botoes: `lib/src/features/scanner/scanner_home_page.dart`.
 - Campos GS1: `lib/src/models/parsed_gs1_code.dart`.
 - Sons: `lib/src/services/scanner_sound_feedback.dart` e `MainActivity.kt`.
-- IP, porta e banco: `configuracao.env`.
+- IP, porta e banco: `suporte/config/configuracao.env`.
 - Colunas da tabela: `api/src/database.js` e `api/src/routes/scans.js`.
 - Nome e versao do app: `pubspec.yaml` e `android/app/build.gradle.kts`.

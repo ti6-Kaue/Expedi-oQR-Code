@@ -3,7 +3,13 @@
   "files.exclude": {
     "**/.dart_tool": true,
     "**/.gradle": true,
+    "**/.idea": true,
+    "**/.kotlin": true,
+    "**/.vscode": false,
+    "**/android": true,
     "**/build": true,
+    "**/node_modules": true,
+    "**/*.iml": true,
     "**/.flutter-plugins-dependencies": true,
     "**/.metadata": true,
     "**/devtools_options.yaml": true

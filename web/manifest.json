@@ -10,7 +10,7 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "assets/assets/images/logo.png",
+      "src": "assets/imagens/logo.png",
       "sizes": "703x704",
       "type": "image/png",
       "purpose": "any"

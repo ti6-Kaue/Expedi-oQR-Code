@@ -11,6 +11,8 @@ const configurationPath = resolve(
   currentDirectory,
   '..',
   '..',
+  'suporte',
+  'config',
   'configuracao.env',
 );
 // Carrega cada linha CHAVE=VALOR em process.env.

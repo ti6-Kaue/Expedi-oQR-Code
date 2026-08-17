@@ -335,7 +335,7 @@ class _AppHeader extends StatelessWidget {
               ),
             ],
           ),
-          child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
+          child: Image.asset('imagens/logo.png', fit: BoxFit.cover),
         ),
         const SizedBox(width: 12),
         Expanded(

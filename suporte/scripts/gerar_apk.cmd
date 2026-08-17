@@ -1,18 +1,19 @@
 @echo off
-rem Le configuracao.env e incorpora o endereco da API no APK.
-rem Comunica-se com: configuracao.env, Flutter e android/app.
+rem Le a configuracao central e incorpora o endereco da API no APK.
 setlocal
 title Gerar APK Leitor QR Code
-cd /d "%~dp0"
+for %%I in ("%~dp0..\..") do set "PROJECT_ROOT=%%~fI"
+set "CONFIG_FILE=%PROJECT_ROOT%\suporte\config\configuracao.env"
+cd /d "%PROJECT_ROOT%"
 
-if not exist "configuracao.env" (
-  echo ERRO: arquivo configuracao.env nao encontrado.
+if not exist "%CONFIG_FILE%" (
+  echo ERRO: arquivo de configuracao nao encontrado.
   pause
   exit /b 1
 )
 
 rem Cada linha CHAVE=VALOR vira uma variavel usada por este script.
-for /f "usebackq eol=# tokens=1,* delims==" %%A in ("configuracao.env") do set "%%A=%%B"
+for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%CONFIG_FILE%") do set "%%A=%%B"
 
 if not defined API_HOST (
   echo ERRO: configure API_HOST em configuracao.env.

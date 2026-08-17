@@ -39,8 +39,8 @@ migrate_working_dir/
 /coverage/
 /dist/
 /ARQUIVOS_GERADOS/
-/api/node_modules/
-/configuracao.env
+#/api/node_modules/
+/suporte/config/configuracao.env
 
 # Arquivos relacionados a simbolizacao
 app.*.symbols
