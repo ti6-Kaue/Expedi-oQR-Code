@@ -39,7 +39,8 @@ migrate_working_dir/
 /coverage/
 /dist/
 /ARQUIVOS_GERADOS/
-#/api/node_modules/
+/database/node_modules/
+/database/.env
 /suporte/config/configuracao.env
 
 # Arquivos relacionados a simbolizacao
