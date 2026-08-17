@@ -1,5 +1,7 @@
 {
   "explorer.compactFolders": true,
+  "dart.flutterHotReloadOnSave": "allIfDirty",
+  "dart.previewHotReloadOnSaveWatcher": true,
   "files.exclude": {
     "**/.dart_tool": true,
     "**/.gradle": true,

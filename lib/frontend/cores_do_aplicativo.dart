@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class AppColors {
+class CoresDoAplicativo {
   static const background = Color(0xFFF1F4F9);
   static const footerMuted = Color(0xFFADBAD6);
   static const footer = Color(0xFFADBAD6);

@@ -1,0 +1,14 @@
+{
+  "name": "leitor-database-connection",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "connection": "node src/check-connection.js",
+    "check": "node --check src/config.js && node --check src/connection.js && node --check src/check-connection.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "mysql2": "^3.15.3"
+  }
+}
