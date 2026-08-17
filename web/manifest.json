@@ -7,5 +7,13 @@
   "theme_color": "#374C92",
   "description": "Base visual para um novo projeto Flutter.",
   "orientation": "any",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "assets/imagens/logo.png",
+      "sizes": "703x704",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
