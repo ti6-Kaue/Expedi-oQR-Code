@@ -1,4 +1,10 @@
-import 'dotenv/config';
+import { config as carregarArquivoEnv } from 'dotenv';
+import { fileURLToPath } from 'node:url';
+
+// OBS: usa sempre o .env da pasta database, mesmo quando outro projeto
+// (como o backend) importa esta configuração.
+const caminhoDoEnv = fileURLToPath(new URL('../.env', import.meta.url));
+carregarArquivoEnv({ path: caminhoDoEnv });
 
 // Configuração única da conexão MySQL e das duas tabelas informadas.
 export const databaseConfig = {
