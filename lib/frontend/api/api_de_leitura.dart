@@ -16,9 +16,12 @@ class ResultadoDaLeitura {
 }
 
 class FalhaNaLeitura implements Exception {
-  const FalhaNaLeitura(this.mensagem);
+  const FalhaNaLeitura(this.mensagem, {this.statusCode});
 
   final String mensagem;
+  final int? statusCode;
+
+  bool get ehDuplicado => statusCode == 409;
 }
 
 class ApiDeLeitura {
@@ -53,6 +56,7 @@ class ApiDeLeitura {
     if (resposta.statusCode != 201) {
       throw FalhaNaLeitura(
         dados['erro']?.toString() ?? 'Não foi possível salvar a leitura.',
+        statusCode: resposta.statusCode,
       );
     }
 

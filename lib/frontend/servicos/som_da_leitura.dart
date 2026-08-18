@@ -16,6 +16,9 @@ class SomDaLeitura {
   // OBS: toca quando a regra, a API ou a gravação retornar um erro.
   Future<void> tocarErro() => _tocar('erro.mp3');
 
+  // OBS: por enquanto, duplicidade utiliza o mesmo aviso de erro.
+  Future<void> tocarDuplicado() => _tocar('erro.mp3');
+
   Future<void> _tocar(String arquivo) async {
     try {
       // OBS: interrompe o som anterior para não misturar duas leituras rápidas.

@@ -34,13 +34,21 @@ class _PaginaInicialState extends State<PaginaInicial> {
     super.dispose();
   }
 
-  Future<void> _enviarLeitura(String codigoRecebido) async {
+  Future<RetornoDaLeitura> _enviarLeitura(String codigoRecebido) async {
     // OBS: impede duas gravações enquanto a primeira ainda está sendo enviada.
-    if (_enviando) return;
+    if (_enviando) {
+      return const RetornoDaLeitura(
+        situacao: SituacaoDaLeitura.erro,
+        mensagem: 'A leitura anterior ainda está sendo processada.',
+      );
+    }
 
-    final codigo = codigoRecebido.trim();
+    var codigo = codigoRecebido.trim();
 
     try {
+      // OBS: transforma leituras como "]d2296301" no pedido "296301".
+      codigo = Regras.normalizarCodigo(codigoRecebido);
+
       // OBS: aplica a regra local antes de enviar; o backend confere novamente.
       final destinoPrevisto = Regras.definirDestino(codigo);
       setState(() {
@@ -52,7 +60,12 @@ class _PaginaInicialState extends State<PaginaInicial> {
       });
 
       final resultado = await _api.enviar(codigo);
-      if (!mounted) return;
+      if (!mounted) {
+        return const RetornoDaLeitura(
+          situacao: SituacaoDaLeitura.erro,
+          mensagem: 'A tela foi fechada durante a leitura.',
+        );
+      }
 
       setState(() {
         _salvou = true;
@@ -61,12 +74,37 @@ class _PaginaInicialState extends State<PaginaInicial> {
         _ultimoDestino = resultado.destino;
       });
       unawaited(_somDaLeitura.tocarCorreto());
+      return RetornoDaLeitura(
+        situacao: SituacaoDaLeitura.salva,
+        mensagem: resultado.mensagem,
+      );
     } on FormatException catch (erro) {
-      _mostrarErro(erro.message);
+      // OBS: outros códigos impressos na etiqueta são ignorados sem bip.
+      return RetornoDaLeitura(
+        situacao: SituacaoDaLeitura.ignorada,
+        mensagem: erro.message,
+      );
     } on FalhaNaLeitura catch (erro) {
-      _mostrarErro(erro.mensagem);
+      if (erro.ehDuplicado) {
+        _mostrarDuplicidade(erro.mensagem, codigo);
+        return RetornoDaLeitura(
+          situacao: SituacaoDaLeitura.duplicada,
+          mensagem: erro.mensagem,
+        );
+      }
+
+      _mostrarErro(erro.mensagem, codigo);
+      return RetornoDaLeitura(
+        situacao: SituacaoDaLeitura.erro,
+        mensagem: erro.mensagem,
+      );
     } catch (_) {
-      _mostrarErro('Erro inesperado ao processar a leitura.');
+      const mensagem = 'Erro inesperado ao processar a leitura.';
+      _mostrarErro(mensagem, codigo);
+      return const RetornoDaLeitura(
+        situacao: SituacaoDaLeitura.erro,
+        mensagem: mensagem,
+      );
     } finally {
       if (mounted) {
         setState(() => _enviando = false);
@@ -77,24 +115,34 @@ class _PaginaInicialState extends State<PaginaInicial> {
   Future<void> _abrirCamera() async {
     if (_enviando) return;
 
-    // OBS: abre a câmera e aguarda o código detectado pelo mobile_scanner.
-    final codigo = await Navigator.of(
-      context,
-    ).push<String>(MaterialPageRoute(builder: (_) => const LeitorPelaCamera()));
-
-    if (!mounted || codigo == null) return;
-
-    // OBS: o código segue para as regras, POST, banco e aviso sonoro.
-    await _enviarLeitura(codigo);
+    // OBS: a câmera permanece aberta e chama _enviarLeitura a cada código.
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => LeitorPelaCamera(aoProcessar: _enviarLeitura),
+      ),
+    );
   }
 
-  void _mostrarErro(String mensagem) {
+  void _mostrarErro(String mensagem, String codigo) {
     if (!mounted) return;
     setState(() {
       _salvou = false;
       _mensagem = mensagem;
+      _ultimoCodigo = codigo;
+      _ultimoDestino = 'Não salvo';
     });
     unawaited(_somDaLeitura.tocarErro());
+  }
+
+  void _mostrarDuplicidade(String mensagem, String codigo) {
+    if (!mounted) return;
+    setState(() {
+      _salvou = false;
+      _mensagem = mensagem;
+      _ultimoCodigo = codigo;
+      _ultimoDestino = 'Duplicado — não foi salvo';
+    });
+    unawaited(_somDaLeitura.tocarDuplicado());
   }
 
   @override
@@ -287,8 +335,8 @@ class _RegrasDaLeitura extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
           SizedBox(height: 8),
-          Text('• 13 ou 14 caracteres e termina com BR: Portal Postal.'),
-          Text('• Demais códigos numéricos: Pedido de Venda.'),
+          Text('• 13 caracteres e termina com BR: Portal Postal.'),
+          Text('• Número com 5 ou 6 dígitos: Pedido de Venda.'),
         ],
       ),
     );
