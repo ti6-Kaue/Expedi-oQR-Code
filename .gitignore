@@ -41,6 +41,8 @@ migrate_working_dir/
 /ARQUIVOS_GERADOS/
 /database/node_modules/
 /database/.env
+/backend/node_modules/
+/backend/.env
 /suporte/config/configuracao.env
 
 # Arquivos relacionados a simbolizacao

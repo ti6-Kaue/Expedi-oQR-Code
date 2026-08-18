@@ -1,0 +1,16 @@
+{
+  "name": "leitor-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "iniciar": "node src/api.js",
+    "desenvolver": "node --watch src/api.js",
+    "verificar": "node --check src/api.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  }
+}
