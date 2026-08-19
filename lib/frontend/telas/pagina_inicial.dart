@@ -46,15 +46,13 @@ class _PaginaInicialState extends State<PaginaInicial> {
     var codigo = codigoRecebido.trim();
 
     try {
-      // OBS: transforma leituras como "]d2296301" no pedido "296301".
-      codigo = Regras.normalizarCodigo(codigoRecebido);
-
-      // OBS: aplica a regra local antes de enviar; o backend confere novamente.
-      final destinoPrevisto = Regras.definirDestino(codigo);
+      // OBS: limpa o código e define o destino em uma única análise.
+      final leitura = Regras.analisarCodigo(codigoRecebido);
+      codigo = leitura.codigo;
       setState(() {
         _enviando = true;
         _salvou = null;
-        _mensagem = destinoPrevisto == DestinoLeitura.portalPostal
+        _mensagem = leitura.destino == DestinoLeitura.portalPostal
             ? 'Enviando para o Portal Postal...'
             : 'Enviando para Pedido de Venda...';
       });
@@ -86,21 +84,21 @@ class _PaginaInicialState extends State<PaginaInicial> {
       );
     } on FalhaNaLeitura catch (erro) {
       if (erro.ehDuplicado) {
-        _mostrarDuplicidade(erro.mensagem, codigo);
+        _registrarFalha(erro.mensagem, codigo, duplicado: true);
         return RetornoDaLeitura(
           situacao: SituacaoDaLeitura.duplicada,
           mensagem: erro.mensagem,
         );
       }
 
-      _mostrarErro(erro.mensagem, codigo);
+      _registrarFalha(erro.mensagem, codigo);
       return RetornoDaLeitura(
         situacao: SituacaoDaLeitura.erro,
         mensagem: erro.mensagem,
       );
     } catch (_) {
       const mensagem = 'Erro inesperado ao processar a leitura.';
-      _mostrarErro(mensagem, codigo);
+      _registrarFalha(mensagem, codigo);
       return const RetornoDaLeitura(
         situacao: SituacaoDaLeitura.erro,
         mensagem: mensagem,
@@ -123,26 +121,21 @@ class _PaginaInicialState extends State<PaginaInicial> {
     );
   }
 
-  void _mostrarErro(String mensagem, String codigo) {
+  void _registrarFalha(
+    String mensagem,
+    String codigo, {
+    bool duplicado = false,
+  }) {
     if (!mounted) return;
     setState(() {
       _salvou = false;
       _mensagem = mensagem;
       _ultimoCodigo = codigo;
-      _ultimoDestino = 'Não salvo';
+      _ultimoDestino = duplicado ? 'Duplicado — não foi salvo' : 'Não salvo';
     });
-    unawaited(_somDaLeitura.tocarErro());
-  }
-
-  void _mostrarDuplicidade(String mensagem, String codigo) {
-    if (!mounted) return;
-    setState(() {
-      _salvou = false;
-      _mensagem = mensagem;
-      _ultimoCodigo = codigo;
-      _ultimoDestino = 'Duplicado — não foi salvo';
-    });
-    unawaited(_somDaLeitura.tocarDuplicado());
+    unawaited(
+      duplicado ? _somDaLeitura.tocarDuplicado() : _somDaLeitura.tocarErro(),
+    );
   }
 
   @override

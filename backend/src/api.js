@@ -31,6 +31,23 @@ function ehPedidoDeVenda(codigo) {
   return /^\d{5,6}$/.test(codigo);
 }
 
+const destinos = {
+  portalPostal: {
+    nome: 'portalpostal.saida_objetos_temp',
+    consultar:
+      'SELECT 1 FROM portalpostal.saida_objetos_temp WHERE codigo = ? LIMIT 1',
+    inserir:
+      'INSERT INTO portalpostal.saida_objetos_temp (codigo) VALUES (?)',
+  },
+  pedidoDeVenda: {
+    nome: 'talmax.pedido_de_venda_saida_temp',
+    consultar:
+      'SELECT 1 FROM talmax.pedido_de_venda_saida_temp WHERE pev_num = ? LIMIT 1',
+    inserir:
+      'INSERT INTO talmax.pedido_de_venda_saida_temp (pev_num) VALUES (?)',
+  },
+};
+
 function normalizarCodigo(codigoRecebido) {
   // Remove caracteres invisíveis enviados por alguns códigos Data Matrix.
   const semControles = String(codigoRecebido ?? '')
@@ -51,14 +68,12 @@ function normalizarCodigo(codigoRecebido) {
   );
 }
 
-function erroDeValidacao(mensagem) {
-  return Object.assign(new Error(mensagem), { statusCode: 400 });
+function criarErro(mensagem, statusCode) {
+  return Object.assign(new Error(mensagem), { statusCode });
 }
 
-function erroDeDuplicidade() {
-  return Object.assign(new Error('Este código já foi bipado anteriormente.'), {
-    statusCode: 409,
-  });
+function erroDeValidacao(mensagem) {
+  return criarErro(mensagem, 400);
 }
 
 // ETAPA 3 — VALIDAÇÃO E GRAVAÇÃO
@@ -68,41 +83,32 @@ async function salvarLeitura(codigoRecebido) {
   }
 
   const codigo = normalizarCodigo(codigoRecebido);
+  const destino = ehCodigoPostal(codigo)
+    ? destinos.portalPostal
+    : destinos.pedidoDeVenda;
 
   if (ehCodigoPostal(codigo)) {
-    // OBS: não grava novamente um código que já existe no Portal Postal.
-    const [existentes] = await databasePool.execute(
-      'SELECT 1 FROM portalpostal.saida_objetos_temp WHERE codigo = ? LIMIT 1',
+    const [rastreamentosUtilizados] = await databasePool.execute(
+      `SELECT 1
+        FROM portalpostal.saida_objetos
+        WHERE codigorastreio = ?
+        LIMIT 1`,
       [codigo],
     );
-    if (existentes.length > 0) throw erroDeDuplicidade();
 
-    await databasePool.execute(
-      'INSERT INTO portalpostal.saida_objetos_temp (codigo) VALUES (?)',
-      [codigo],
-    );
-    return { codigo, destino: 'portalpostal.saida_objetos_temp' };
+    if (rastreamentosUtilizados.length > 0) {
+      throw criarErro('Código de rastreio já utilizado!', 409);
+    }
   }
 
-  // OBS: pedido de venda deve ter somente 5 ou 6 dígitos.
-  if (!ehPedidoDeVenda(codigo)) {
-    throw erroDeValidacao(
-      'Código inválido: use 13 caracteres terminando em BR ou 5 a 6 dígitos.',
-    );
+  // OBS: a consulta impede que o mesmo código seja gravado novamente.
+  const [existentes] = await databasePool.execute(destino.consultar, [codigo]);
+  if (existentes.length > 0) {
+    throw criarErro('Este código já foi bipado anteriormente.', 409);
   }
 
-  // OBS: não grava novamente um pedido que já existe na tabela temporária.
-  const [existentes] = await databasePool.execute(
-    'SELECT 1 FROM talmax.pedido_de_venda_saida_temp WHERE pev_num = ? LIMIT 1',
-    [codigo],
-  );
-  if (existentes.length > 0) throw erroDeDuplicidade();
-
-  await databasePool.execute(
-    'INSERT INTO talmax.pedido_de_venda_saida_temp (pev_num) VALUES (?)',
-    [codigo],
-  );
-  return { codigo, destino: 'talmax.pedido_de_venda_saida_temp' };
+  await databasePool.execute(destino.inserir, [codigo]);
+  return { codigo, destino: destino.nome };
 }
 
 // ETAPA 4 — ROTAS DA API

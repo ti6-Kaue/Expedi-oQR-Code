@@ -14,6 +14,10 @@ class RetornoDaLeitura {
 
   final SituacaoDaLeitura situacao;
   final String mensagem;
+
+  bool get continuaAutomaticamente =>
+      situacao == SituacaoDaLeitura.salva ||
+      situacao == SituacaoDaLeitura.ignorada;
 }
 
 /// Painel da página inicial que abre a câmera do celular.
@@ -131,31 +135,34 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
 
     if (!mounted) return;
 
-    final continuarLendo =
-        resultado.situacao == SituacaoDaLeitura.salva ||
-        resultado.situacao == SituacaoDaLeitura.ignorada;
-
-    if (continuarLendo) {
-      // OBS: leitura correta ou irrelevante não fecha a câmera.
-      if (resultado.situacao == SituacaoDaLeitura.ignorada) {
-        _codigosIgnorados.add(codigo);
-      } else {
-        // Dá tempo para o operador retirar a etiqueta que foi salva.
-        await Future<void>.delayed(const Duration(milliseconds: 800));
-      }
-      if (!mounted) return;
-      await _camera.start();
-      if (!mounted) return;
-      setState(() {
-        _codigoLido = null;
-        _processando = false;
-      });
+    if (resultado.continuaAutomaticamente) {
+      await _continuarAutomaticamente(codigo, resultado.situacao);
       return;
     }
 
     // Somente erro ou duplicidade interrompem a leitura contínua.
     setState(() {
       _resultado = resultado;
+      _processando = false;
+    });
+  }
+
+  Future<void> _continuarAutomaticamente(
+    String codigo,
+    SituacaoDaLeitura situacao,
+  ) async {
+    if (situacao == SituacaoDaLeitura.ignorada) {
+      _codigosIgnorados.add(codigo);
+    } else {
+      // Dá tempo para o operador retirar a etiqueta que foi salva.
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+    }
+
+    if (!mounted) return;
+    await _camera.start();
+    if (!mounted) return;
+    setState(() {
+      _codigoLido = null;
       _processando = false;
     });
   }
@@ -225,45 +232,9 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
                 ),
               ),
 
-              // OBS: escurece tudo que está fora do código central.
-              Positioned(
-                left: 0,
-                top: 0,
-                right: 0,
-                height: areaDeLeitura.top,
-                child: const ColoredBox(color: Color(0x77000000)),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: areaDeLeitura.bottom,
-                bottom: 0,
-                child: const ColoredBox(color: Color(0x77000000)),
-              ),
-              Positioned(
-                left: 0,
-                top: areaDeLeitura.top,
-                width: areaDeLeitura.left,
-                height: areaDeLeitura.height,
-                child: const ColoredBox(color: Color(0x77000000)),
-              ),
-              Positioned(
-                left: areaDeLeitura.right,
-                right: 0,
-                top: areaDeLeitura.top,
-                height: areaDeLeitura.height,
-                child: const ColoredBox(color: Color(0x77000000)),
-              ),
-              Positioned.fromRect(
-                rect: areaDeLeitura,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white, width: 3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+              // OBS: uma única camada escurece o exterior e desenha a moldura.
+              IgnorePointer(
+                child: CustomPaint(painter: _MascaraDaCamera(areaDeLeitura)),
               ),
               if (_processando)
                 const ColoredBox(
@@ -312,12 +283,7 @@ class _AvisoDaLeitura extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final duplicada = resultado.situacao == SituacaoDaLeitura.duplicada;
-    final salva = resultado.situacao == SituacaoDaLeitura.salva;
-    final cor = salva
-        ? Colors.green
-        : duplicada
-        ? Colors.orange
-        : Colors.red;
+    final cor = duplicada ? Colors.orange : Colors.red;
 
     return ColoredBox(
       color: const Color(0x99000000),
@@ -334,11 +300,7 @@ class _AvisoDaLeitura extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                salva
-                    ? Icons.check_circle
-                    : duplicada
-                    ? Icons.content_copy_rounded
-                    : Icons.error_rounded,
+                duplicada ? Icons.content_copy_rounded : Icons.error_rounded,
                 color: cor,
                 size: 52,
               ),
@@ -362,4 +324,36 @@ class _AvisoDaLeitura extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MascaraDaCamera extends CustomPainter {
+  const _MascaraDaCamera(this.areaDeLeitura);
+
+  final Rect areaDeLeitura;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final abertura = RRect.fromRectAndRadius(
+      areaDeLeitura,
+      const Radius.circular(12),
+    );
+    final exterior = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(Offset.zero & size),
+      Path()..addRRect(abertura),
+    );
+
+    canvas.drawPath(exterior, Paint()..color = const Color(0x77000000));
+    canvas.drawRRect(
+      abertura,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MascaraDaCamera anterior) =>
+      anterior.areaDeLeitura != areaDeLeitura;
 }
