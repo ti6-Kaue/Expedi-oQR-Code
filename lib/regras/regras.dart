@@ -3,8 +3,9 @@ enum DestinoLeitura { portalPostal, pedidoDeVenda }
 class Regras {
   const Regras._();
 
-  // OBS: remove caracteres de controle e extrai o número do pedido quando
-  // o código da câmera vier com prefixos, como ocorre em alguns Data Matrix.
+  // REGRA: LIMPEZA DO CÓDIGO
+  // Remove caracteres invisíveis e extrai o número do pedido quando o código
+  // da câmera vier com prefixos, como ocorre em alguns Data Matrix.
   static String normalizarCodigo(String codigoLido) {
     final semControles = codigoLido
         .replaceAll(RegExp(r'[\x00-\x1F\x7F]'), ' ')
@@ -13,22 +14,25 @@ class Regras {
     // Alguns leitores acrescentam o identificador AIM "]d2" ao Data Matrix.
     final codigo = semControles.replaceFirst(RegExp(r'^\][A-Za-z]\d'), '');
 
+    // REGRA: PORTAL POSTAL
+    // Somente um código com exatamente 13 caracteres e final BR é aceito.
     final codigoPostal =
         codigo.length == 13 && codigo.toUpperCase().endsWith('BR');
     if (codigoPostal) return codigo;
 
+    // REGRA: PEDIDO DE VENDA
+    // Aceita um único grupo numérico com 5 ou 6 dígitos.
     final gruposNumericos = RegExp(r'\d+')
         .allMatches(codigo)
         .map((resultado) => resultado.group(0)!)
         .where((numero) => numero.length == 5 || numero.length == 6)
         .toList();
 
-    // Aceita somente um grupo possível para não salvar o número errado.
+    // REGRA: EVITAR PEDIDO ERRADO
+    // Se houver nenhum ou mais de um número possível, ignora a leitura.
     if (gruposNumericos.length == 1) return gruposNumericos.single;
 
-    throw const FormatException(
-      'Código inválido: não foi possível identificar um único pedido.',
-    );
+    throw const FormatException();
   }
 
   // Retorna de uma vez o código limpo e a tabela de destino.

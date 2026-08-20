@@ -10,10 +10,15 @@ enum SituacaoDaLeitura { salva, duplicada, ignorada, erro }
 
 /// Resultado devolvido à câmera depois que a API processa o código.
 class RetornoDaLeitura {
-  const RetornoDaLeitura({required this.situacao, required this.mensagem});
+  const RetornoDaLeitura({
+    required this.situacao,
+    required this.mensagem,
+    this.contabilizada = false,
+  });
 
   final SituacaoDaLeitura situacao;
   final String mensagem;
+  final bool contabilizada;
 
   bool get continuaAutomaticamente =>
       situacao == SituacaoDaLeitura.salva ||
@@ -86,10 +91,15 @@ class PainelDaCamera extends StatelessWidget {
 
 /// Mantém a câmera aberta e processa uma leitura por vez.
 class LeitorPelaCamera extends StatefulWidget {
-  const LeitorPelaCamera({required this.aoProcessar, super.key});
+  const LeitorPelaCamera({
+    required this.aoProcessar,
+    required this.quantidadeInicial,
+    super.key,
+  });
 
   // OBS: envia o código para as regras, API e banco sem fechar esta tela.
   final Future<RetornoDaLeitura> Function(String codigo) aoProcessar;
+  final int quantidadeInicial;
 
   @override
   State<LeitorPelaCamera> createState() => _LeitorPelaCameraState();
@@ -106,6 +116,13 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
   String? _codigoLido;
   RetornoDaLeitura? _resultado;
   final Set<String> _codigosIgnorados = {};
+  late int _quantidade;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantidade = widget.quantidadeInicial;
+  }
 
   Future<void> _aoDetectar(BarcodeCapture captura) async {
     if (_processando || _resultado != null) return;
@@ -135,6 +152,13 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
 
     if (!mounted) return;
 
+    // REGRA: SOMENTE LEITURA SALVA AUMENTA O CONTADOR
+    // O backend precisa ter confirmado a gravação. Em duplicidade, erro ou
+    // código inválido, contabilizada vem como false e o total não muda.
+    if (resultado.contabilizada) {
+      setState(() => _quantidade++);
+    }
+
     if (resultado.continuaAutomaticamente) {
       await _continuarAutomaticamente(codigo, resultado.situacao);
       return;
@@ -151,6 +175,9 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
     String codigo,
     SituacaoDaLeitura situacao,
   ) async {
+    // REGRA: CÓDIGO FORA DO PADRÃO
+    // Guarda o código inválido enquanto a câmera estiver aberta para não
+    // tentar processar repetidamente outro código impresso na mesma etiqueta.
     if (situacao == SituacaoDaLeitura.ignorada) {
       _codigosIgnorados.add(codigo);
     } else {
@@ -236,6 +263,12 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
               IgnorePointer(
                 child: CustomPaint(painter: _MascaraDaCamera(areaDeLeitura)),
               ),
+              Positioned(
+                top: 12,
+                left: 16,
+                right: 16,
+                child: _IndicadorQuantidade(quantidade: _quantidade),
+              ),
               if (_processando)
                 const ColoredBox(
                   color: Color(0x66000000),
@@ -264,6 +297,47 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _IndicadorQuantidade extends StatelessWidget {
+  const _IndicadorQuantidade({required this.quantidade});
+
+  final int quantidade;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: CoresDoAplicativo.textPrimary.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.inventory_2_outlined, color: Colors.white),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Itens bipados',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '$quantidade',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

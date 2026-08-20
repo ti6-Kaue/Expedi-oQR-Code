@@ -6,6 +6,7 @@ import '../../regras/regras.dart';
 import '../api/api_de_leitura.dart';
 import '../componentes/leitor_pela_camera.dart';
 import '../cores_do_aplicativo.dart';
+import '../servicos/historico_de_leituras.dart';
 import '../servicos/som_da_leitura.dart';
 
 class PaginaInicial extends StatefulWidget {
@@ -21,12 +22,30 @@ class _PaginaInicialState extends State<PaginaInicial> {
 
   // OBS: este serviço escolhe entre correto.mp3 e erro.mp3.
   final _somDaLeitura = SomDaLeitura();
+  final _armazenamentoDoHistorico = const HistoricoDeLeituras();
 
   bool _enviando = false;
-  bool? _salvou;
-  String _mensagem = 'Aguardando a primeira leitura';
-  String? _ultimoCodigo;
-  String? _ultimoDestino;
+  bool _carregandoHistorico = true;
+  List<ItemDoHistorico> _historico = [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_carregarHistorico());
+  }
+
+  Future<void> _carregarHistorico() async {
+    try {
+      final itens = await _armazenamentoDoHistorico.carregar();
+      if (!mounted) return;
+      setState(() {
+        _historico = itens;
+        _carregandoHistorico = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _carregandoHistorico = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -44,17 +63,12 @@ class _PaginaInicialState extends State<PaginaInicial> {
     }
 
     var codigo = codigoRecebido.trim();
-
     try {
       // OBS: limpa o código e define o destino em uma única análise.
       final leitura = Regras.analisarCodigo(codigoRecebido);
       codigo = leitura.codigo;
       setState(() {
         _enviando = true;
-        _salvou = null;
-        _mensagem = leitura.destino == DestinoLeitura.portalPostal
-            ? 'Enviando para o Portal Postal...'
-            : 'Enviando para Pedido de Venda...';
       });
 
       final resultado = await _api.enviar(codigo);
@@ -65,40 +79,42 @@ class _PaginaInicialState extends State<PaginaInicial> {
         );
       }
 
-      setState(() {
-        _salvou = true;
-        _mensagem = resultado.mensagem;
-        _ultimoCodigo = resultado.codigo;
-        _ultimoDestino = resultado.destino;
-      });
+      // REGRA 5 - CONTADOR E HISTÓRICO:
+      // Somente uma gravação confirmada pela API entra no contador e
+      // no histórico. Duplicidades e falhas não chegam a este ponto.
+      await _adicionarAoHistorico(leitura.codigo, leitura.destino);
       unawaited(_somDaLeitura.tocarCorreto());
       return RetornoDaLeitura(
         situacao: SituacaoDaLeitura.salva,
         mensagem: resultado.mensagem,
+        contabilizada: true,
       );
-    } on FormatException catch (erro) {
+    } on FormatException {
       // OBS: outros códigos impressos na etiqueta são ignorados sem bip.
-      return RetornoDaLeitura(
+      return const RetornoDaLeitura(
         situacao: SituacaoDaLeitura.ignorada,
-        mensagem: erro.message,
+        mensagem: '',
       );
     } on FalhaNaLeitura catch (erro) {
       if (erro.ehDuplicado) {
-        _registrarFalha(erro.mensagem, codigo, duplicado: true);
+        // REGRA 6 - DUPLICADO NÃO CONTA:
+        // Toca o aviso, mas não adiciona ao histórico e devolve
+        // contabilizada=false para a tela da câmera.
+        _registrarFalha(duplicado: true);
         return RetornoDaLeitura(
           situacao: SituacaoDaLeitura.duplicada,
           mensagem: erro.mensagem,
         );
       }
 
-      _registrarFalha(erro.mensagem, codigo);
+      _registrarFalha();
       return RetornoDaLeitura(
         situacao: SituacaoDaLeitura.erro,
         mensagem: erro.mensagem,
       );
     } catch (_) {
       const mensagem = 'Erro inesperado ao processar a leitura.';
-      _registrarFalha(mensagem, codigo);
+      _registrarFalha();
       return const RetornoDaLeitura(
         situacao: SituacaoDaLeitura.erro,
         mensagem: mensagem,
@@ -110,29 +126,76 @@ class _PaginaInicialState extends State<PaginaInicial> {
     }
   }
 
+  Future<void> _adicionarAoHistorico(
+    String codigo,
+    DestinoLeitura destino,
+  ) async {
+    final item = ItemDoHistorico(
+      codigo: codigo,
+      destino: destino == DestinoLeitura.portalPostal
+          ? 'Portal Postal'
+          : 'Pedido de Venda',
+      lidoEm: DateTime.now(),
+    );
+
+    final historicoAtualizado = [item, ..._historico];
+    if (mounted) setState(() => _historico = historicoAtualizado);
+
+    try {
+      await _armazenamentoDoHistorico.salvar(historicoAtualizado);
+    } catch (_) {
+      // Uma falha no cache local não deve impedir o envio para a API.
+    }
+  }
+
+  Future<void> _confirmarLimpeza() async {
+    if (_historico.isEmpty) return;
+
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Limpar histórico?'),
+        content: const Text(
+          'A contagem e o histórico salvos neste aparelho serão apagados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Limpar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmou != true || !mounted) return;
+    setState(() => _historico = []);
+    try {
+      await _armazenamentoDoHistorico.limpar();
+    } catch (_) {
+      // A interface permanece utilizável mesmo se o cache falhar.
+    }
+  }
+
   Future<void> _abrirCamera() async {
     if (_enviando) return;
 
     // OBS: a câmera permanece aberta e chama _enviarLeitura a cada código.
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => LeitorPelaCamera(aoProcessar: _enviarLeitura),
+        builder: (_) => LeitorPelaCamera(
+          aoProcessar: _enviarLeitura,
+          quantidadeInicial: _historico.length,
+        ),
       ),
     );
   }
 
-  void _registrarFalha(
-    String mensagem,
-    String codigo, {
-    bool duplicado = false,
-  }) {
+  void _registrarFalha({bool duplicado = false}) {
     if (!mounted) return;
-    setState(() {
-      _salvou = false;
-      _mensagem = mensagem;
-      _ultimoCodigo = codigo;
-      _ultimoDestino = duplicado ? 'Duplicado — não foi salvo' : 'Não salvo';
-    });
     unawaited(
       duplicado ? _somDaLeitura.tocarDuplicado() : _somDaLeitura.tocarErro(),
     );
@@ -173,14 +236,17 @@ class _PaginaInicialState extends State<PaginaInicial> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   children: [
-                    _CartaoDoResultado(
-                      salvou: _salvou,
-                      mensagem: _mensagem,
-                      codigo: _ultimoCodigo,
-                      destino: _ultimoDestino,
+                    _ResumoDoHistorico(
+                      quantidade: _historico.length,
+                      aoLimpar: _historico.isEmpty ? null : _confirmarLimpeza,
                     ),
-                    const SizedBox(height: 18),
-                    const _RegrasDaLeitura(),
+                    const SizedBox(height: 14),
+                    if (_carregandoHistorico)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_historico.isEmpty)
+                      const _HistoricoVazio()
+                    else
+                      ..._historico.map((item) => _ItemDoHistorico(item)),
                   ],
                 ),
               ),
@@ -248,58 +314,51 @@ class _Cabecalho extends StatelessWidget {
   }
 }
 
-class _CartaoDoResultado extends StatelessWidget {
-  const _CartaoDoResultado({
-    required this.salvou,
-    required this.mensagem,
-    required this.codigo,
-    required this.destino,
-  });
+class _ResumoDoHistorico extends StatelessWidget {
+  const _ResumoDoHistorico({required this.quantidade, required this.aoLimpar});
 
-  final bool? salvou;
-  final String mensagem;
-  final String? codigo;
-  final String? destino;
+  final int quantidade;
+  final VoidCallback? aoLimpar;
 
   @override
   Widget build(BuildContext context) {
-    final cor = salvou == null
-        ? CoresDoAplicativo.searchSubmenu
-        : salvou!
-        ? Colors.green
-        : Colors.red;
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border.all(color: CoresDoAplicativo.footerMuted),
-        borderRadius: BorderRadius.circular(8),
+        color: CoresDoAplicativo.textPrimary,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            salvou == true ? Icons.check_circle : Icons.info_outline,
-            color: cor,
-            size: 34,
-          ),
+          const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 32),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  mensagem,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                const Text(
+                  'Itens bipados',
+                  style: TextStyle(
+                    color: CoresDoAplicativo.footerMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                if (codigo != null) ...[
-                  const SizedBox(height: 6),
-                  Text('Código: $codigo'),
-                  Text('Destino: $destino'),
-                ],
+                Text(
+                  '$quantidade',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ],
             ),
+          ),
+          TextButton.icon(
+            onPressed: aoLimpar,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            icon: const Icon(Icons.delete_outline_rounded),
+            label: const Text('Limpar'),
           ),
         ],
       ),
@@ -307,31 +366,75 @@ class _CartaoDoResultado extends StatelessWidget {
   }
 }
 
-class _RegrasDaLeitura extends StatelessWidget {
-  const _RegrasDaLeitura();
+class _HistoricoVazio extends StatelessWidget {
+  const _HistoricoVazio();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: CoresDoAplicativo.background,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: CoresDoAplicativo.footerMuted),
       ),
       child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Regras da leitura',
-            style: TextStyle(fontWeight: FontWeight.w800),
+          Icon(
+            Icons.history_rounded,
+            color: CoresDoAplicativo.searchSubmenu,
+            size: 32,
           ),
           SizedBox(height: 8),
-          Text('• 13 caracteres e termina com BR: Portal Postal.'),
-          Text('• Número com 5 ou 6 dígitos: Pedido de Venda.'),
+          Text(
+            'Nenhum item bipado',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Os códigos válidos aparecerão aqui.',
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
+  }
+}
+
+class _ItemDoHistorico extends StatelessWidget {
+  const _ItemDoHistorico(this.item);
+
+  final ItemDoHistorico item;
+
+  @override
+  Widget build(BuildContext context) {
+    final horario = _formatarData(item.lidoEm);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: CoresDoAplicativo.footerMuted),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: CoresDoAplicativo.background,
+          child: Icon(Icons.qr_code_rounded, color: CoresDoAplicativo.menu),
+        ),
+        title: Text(
+          item.codigo,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text('${item.destino}  •  $horario'),
+      ),
+    );
+  }
+
+  String _formatarData(DateTime data) {
+    String doisDigitos(int valor) => valor.toString().padLeft(2, '0');
+    return '${doisDigitos(data.day)}/${doisDigitos(data.month)} '
+        '${doisDigitos(data.hour)}:${doisDigitos(data.minute)}';
   }
 }

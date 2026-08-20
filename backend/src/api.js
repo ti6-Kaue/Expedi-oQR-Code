@@ -63,9 +63,7 @@ function normalizarCodigo(codigoRecebido) {
   const pedidosPossiveis = gruposNumericos.filter(ehPedidoDeVenda);
   if (pedidosPossiveis.length === 1) return pedidosPossiveis[0];
 
-  throw erroDeValidacao(
-    'Código inválido: não foi possível identificar um único pedido.',
-  );
+  throw erroDeValidacao('');
 }
 
 function criarErro(mensagem, statusCode) {
@@ -78,16 +76,18 @@ function erroDeValidacao(mensagem) {
 
 // ETAPA 3 — VALIDAÇÃO E GRAVAÇÃO
 async function salvarLeitura(codigoRecebido) {
-  if (!String(codigoRecebido ?? '').trim()) {
-    throw erroDeValidacao('O campo codigo é obrigatório.');
-  }
-
+  // REGRA 1 - CÓDIGO VÁLIDO:
+  // Aceita somente rastreio postal ou pedido de venda nos formatos definidos
+  // em normalizarCodigo. Qualquer outro conteúdo não chega ao banco.
   const codigo = normalizarCodigo(codigoRecebido);
   const destino = ehCodigoPostal(codigo)
     ? destinos.portalPostal
     : destinos.pedidoDeVenda;
 
   if (ehCodigoPostal(codigo)) {
+    // REGRA 2 - RASTREIO JÁ UTILIZADO:
+    // Não permite inserir na tabela temporária um rastreio que já aparece
+    // na tabela definitiva portalpostal.saida_objetos.
     const [rastreamentosUtilizados] = await databasePool.execute(
       `SELECT 1
         FROM portalpostal.saida_objetos
@@ -101,12 +101,16 @@ async function salvarLeitura(codigoRecebido) {
     }
   }
 
-  // OBS: a consulta impede que o mesmo código seja gravado novamente.
+  // REGRA 3 - NÃO BIPAR DUAS VEZES:
+  // Procura o código na tabela temporária correta. Se ele já existir,
+  // devolve HTTP 409 e não executa um novo INSERT.
   const [existentes] = await databasePool.execute(destino.consultar, [codigo]);
   if (existentes.length > 0) {
     throw criarErro('Este código já foi bipado anteriormente.', 409);
   }
 
+  // REGRA 4 - GRAVAÇÃO CONFIRMADA:
+  // O código só é inserido quando passou por todas as regras anteriores.
   await databasePool.execute(destino.inserir, [codigo]);
   return { codigo, destino: destino.nome };
 }
