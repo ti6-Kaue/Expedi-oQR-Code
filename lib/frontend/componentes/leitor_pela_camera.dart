@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../regras/regras.dart';
 import '../cores_do_aplicativo.dart';
 
 enum SituacaoDaLeitura { salva, duplicada, ignorada, erro }
@@ -34,7 +35,7 @@ class PainelDaCamera extends StatelessWidget {
   });
 
   final bool enviando;
-  final VoidCallback aoAbrirCamera;
+  final ValueChanged<DestinoLeitura> aoAbrirCamera;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +64,7 @@ class PainelDaCamera extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                enviando ? 'Processando leitura...' : 'Pronto para escanear',
+                enviando ? 'Processando leitura...' : 'Escolha o tipo de bipagem',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -71,15 +72,31 @@ class PainelDaCamera extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Use a câmera do celular para ler o código.',
+                'Selecione o tipo de código antes de abrir a câmera.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: CoresDoAplicativo.footerMuted),
               ),
               const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: enviando ? null : aoAbrirCamera,
-                icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('Abrir câmera'),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: enviando
+                      ? null
+                      : () => aoAbrirCamera(DestinoLeitura.pedidoDeVenda),
+                  icon: const Icon(Icons.receipt_long_rounded),
+                  label: const Text('Bipar Pedido de Venda'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: enviando
+                      ? null
+                      : () => aoAbrirCamera(DestinoLeitura.portalPostal),
+                  icon: const Icon(Icons.local_shipping_rounded),
+                  label: const Text('Bipar Pedido Postal'),
+                ),
               ),
             ],
           ),
@@ -94,12 +111,14 @@ class LeitorPelaCamera extends StatefulWidget {
   const LeitorPelaCamera({
     required this.aoProcessar,
     required this.quantidadeInicial,
+    required this.modo,
     super.key,
   });
 
   // OBS: envia o código para as regras, API e banco sem fechar esta tela.
   final Future<RetornoDaLeitura> Function(String codigo) aoProcessar;
   final int quantidadeInicial;
+  final DestinoLeitura modo;
 
   @override
   State<LeitorPelaCamera> createState() => _LeitorPelaCameraState();
@@ -216,7 +235,7 @@ class _LeitorPelaCameraState extends State<LeitorPelaCamera> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Leitura de expedição'),
+        title: Text('Bipando ${widget.modo.rotulo}'),
         actions: [
           IconButton(
             tooltip: 'Ligar ou desligar a lanterna',

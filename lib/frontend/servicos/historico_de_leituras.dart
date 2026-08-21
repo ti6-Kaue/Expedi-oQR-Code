@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../regras/regras.dart';
+
 class ItemDoHistorico {
   const ItemDoHistorico({
     required this.codigo,
@@ -67,5 +69,17 @@ class HistoricoDeLeituras {
     // não exclui nenhum registro das tabelas do banco de dados.
     final preferencias = await SharedPreferences.getInstance();
     await preferencias.remove(_chave);
+  }
+
+  // REGRA: LIMPAR APENAS UM MODO
+  // Apaga do cache local somente os itens do destino informado, preservando
+  // os itens do outro modo (Pedido Postal × Pedido de Venda).
+  Future<List<ItemDoHistorico>> limparPor(DestinoLeitura destino) async {
+    final atuais = await carregar();
+    final restantes = atuais
+        .where((item) => item.destino != destino.rotulo)
+        .toList();
+    await salvar(restantes);
+    return restantes;
   }
 }

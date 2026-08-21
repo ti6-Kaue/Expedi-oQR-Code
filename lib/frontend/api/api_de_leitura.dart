@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../regras/regras.dart';
+
 class ResultadoDaLeitura {
   const ResultadoDaLeitura({
     required this.codigo,
@@ -34,7 +36,10 @@ class ApiDeLeitura {
     defaultValue: 'http://127.0.0.1:3001',
   );
 
-  Future<ResultadoDaLeitura> enviar(String codigo) async {
+  Future<ResultadoDaLeitura> enviar(
+    String codigo, {
+    required DestinoLeitura modo,
+  }) async {
     late final http.Response resposta;
 
     try {
@@ -42,7 +47,7 @@ class ApiDeLeitura {
           .post(
             Uri.parse('$endereco/leituras'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'codigo': codigo}),
+            body: jsonEncode({'codigo': codigo, 'modo': modo.chave}),
           )
           .timeout(const Duration(seconds: 10));
     } on TimeoutException {

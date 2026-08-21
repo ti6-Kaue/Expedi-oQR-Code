@@ -1,5 +1,27 @@
 enum DestinoLeitura { portalPostal, pedidoDeVenda }
 
+extension RotuloDoDestino on DestinoLeitura {
+  String get rotulo => this == DestinoLeitura.portalPostal
+      ? 'Portal Postal'
+      : 'Pedido de Venda';
+
+  // Chave enviada ao backend no campo "modo".
+  String get chave => this == DestinoLeitura.portalPostal
+      ? 'portalPostal'
+      : 'pedidoDeVenda';
+}
+
+/// Erro lançado quando o código lido não pertence ao modo escolhido.
+class CodigoDeOutroModo implements Exception {
+  const CodigoDeOutroModo(this.destinoDetectado);
+
+  final DestinoLeitura destinoDetectado;
+
+  @override
+  String toString() =>
+      'Este código é de ${destinoDetectado.rotulo}. Abra o modo ${destinoDetectado.rotulo}.';
+}
+
 class Regras {
   const Regras._();
 
@@ -49,5 +71,17 @@ class Regras {
   // Mantido para telas que precisem consultar somente o destino.
   static DestinoLeitura definirDestino(String codigoLido) {
     return analisarCodigo(codigoLido).destino;
+  }
+
+  // Normaliza o código e garante que ele pertence ao modo escolhido pelo botão.
+  static ({String codigo, DestinoLeitura destino}) analisarCodigoNoModo(
+    String codigoLido,
+    DestinoLeitura modoEscolhido,
+  ) {
+    final leitura = analisarCodigo(codigoLido);
+    if (leitura.destino != modoEscolhido) {
+      throw CodigoDeOutroModo(leitura.destino);
+    }
+    return leitura;
   }
 }

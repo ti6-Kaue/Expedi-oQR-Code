@@ -34,6 +34,7 @@ function ehPedidoDeVenda(codigo) {
 const destinos = {
   portalPostal: {
     nome: 'portalpostal.saida_objetos_temp',
+    rotulo: 'Portal Postal',
     consultar:
       'SELECT 1 FROM portalpostal.saida_objetos_temp WHERE codigo = ? LIMIT 1',
     inserir:
@@ -41,6 +42,7 @@ const destinos = {
   },
   pedidoDeVenda: {
     nome: 'talmax.pedido_de_venda_saida_temp',
+    rotulo: 'Pedido de Venda',
     consultar:
       'SELECT 1 FROM talmax.pedido_de_venda_saida_temp WHERE pev_num = ? LIMIT 1',
     inserir:
@@ -74,15 +76,53 @@ function erroDeValidacao(mensagem) {
   return criarErro(mensagem, 400);
 }
 
+async function existePedidoCancelado(codigo, chaveNatural) {
+  if (chaveNatural === 'pedidoDeVenda') {
+    const [cancelados] = await databasePool.execute(
+      `SELECT 1
+        FROM talmax.pedido_de_venda
+        WHERE pev_num = ?
+          AND pev_ativo = 0
+        LIMIT 1`,
+      [codigo],
+    );
+    return cancelados.length > 0;
+  }
+
+  const [cancelados] = await databasePool.execute(
+    `SELECT 1
+      FROM portalpostal.prepostagem pp
+      LEFT JOIN talmax.numped np_ped ON np_ped.numped = pp.chave
+      LEFT JOIN talmax.numped np_orc ON np_orc.numorc = np_ped.numped
+      JOIN talmax.pedido_de_venda pv ON pv.pev_num = np_orc.numped
+      WHERE pp.codigorastreio = ?
+        AND pv.pev_ativo = 0
+      LIMIT 1`,
+    [codigo],
+  );
+  return cancelados.length > 0;
+}
+
 // ETAPA 3 — VALIDAÇÃO E GRAVAÇÃO
-async function salvarLeitura(codigoRecebido) {
+async function salvarLeitura(codigoRecebido, modoEscolhido) {
   // REGRA 1 - CÓDIGO VÁLIDO:
   // Aceita somente rastreio postal ou pedido de venda nos formatos definidos
   // em normalizarCodigo. Qualquer outro conteúdo não chega ao banco.
   const codigo = normalizarCodigo(codigoRecebido);
-  const destino = ehCodigoPostal(codigo)
-    ? destinos.portalPostal
-    : destinos.pedidoDeVenda;
+  const chaveNatural = ehCodigoPostal(codigo) ? 'portalPostal' : 'pedidoDeVenda';
+
+  // REGRA 1.1 - MODO ESCOLHIDO PELO BOTÃO:
+  // Quando o app informa o modo, o formato do código precisa bater com ele.
+  if (modoEscolhido && modoEscolhido !== chaveNatural) {
+    const outro = destinos[chaveNatural].rotulo;
+    throw erroDeValidacao(`Este código é de ${outro}. Abra o modo ${outro}.`);
+  }
+
+  const destino = destinos[modoEscolhido ?? chaveNatural];
+
+  if (await existePedidoCancelado(codigo, chaveNatural)) {
+    throw criarErro('Pedido cancelado. Esta leitura não pode ser salva.', 409);
+  }
 
   if (ehCodigoPostal(codigo)) {
     // REGRA 2 - RASTREIO JÁ UTILIZADO:
@@ -133,9 +173,14 @@ api.get('/baixar-apk', (_requisicao, resposta, proximo) => {
   });
 });
 
-// Recebe: { "codigo": "CONTEUDO_LIDO" }.
+// Recebe: { "codigo": "CONTEUDO_LIDO", "modo": "pedidoDeVenda" | "portalPostal" }.
+// O "modo" é opcional; sem ele, o destino é escolhido pelo formato do código.
 api.post('/leituras', async (requisicao, resposta) => {
-  const leitura = await salvarLeitura(requisicao.body?.codigo);
+  const modoRecebido = requisicao.body?.modo;
+  if (modoRecebido !== undefined && !Object.hasOwn(destinos, modoRecebido)) {
+    throw erroDeValidacao('Modo inválido. Use "pedidoDeVenda" ou "portalPostal".');
+  }
+  const leitura = await salvarLeitura(requisicao.body?.codigo, modoRecebido);
   resposta.status(201).json({
     mensagem: 'Leitura salva com sucesso.',
     ...leitura,

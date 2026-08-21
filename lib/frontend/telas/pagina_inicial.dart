@@ -53,7 +53,10 @@ class _PaginaInicialState extends State<PaginaInicial> {
     super.dispose();
   }
 
-  Future<RetornoDaLeitura> _enviarLeitura(String codigoRecebido) async {
+  Future<RetornoDaLeitura> _enviarLeitura(
+    String codigoRecebido,
+    DestinoLeitura modoAtivo,
+  ) async {
     // OBS: impede duas gravações enquanto a primeira ainda está sendo enviada.
     if (_enviando) {
       return const RetornoDaLeitura(
@@ -64,14 +67,14 @@ class _PaginaInicialState extends State<PaginaInicial> {
 
     var codigo = codigoRecebido.trim();
     try {
-      // OBS: limpa o código e define o destino em uma única análise.
-      final leitura = Regras.analisarCodigo(codigoRecebido);
+      // Valida formato E se o código pertence ao modo escolhido pelo botão.
+      final leitura = Regras.analisarCodigoNoModo(codigoRecebido, modoAtivo);
       codigo = leitura.codigo;
       setState(() {
         _enviando = true;
       });
 
-      final resultado = await _api.enviar(codigo);
+      final resultado = await _api.enviar(codigo, modo: modoAtivo);
       if (!mounted) {
         return const RetornoDaLeitura(
           situacao: SituacaoDaLeitura.erro,
@@ -88,6 +91,13 @@ class _PaginaInicialState extends State<PaginaInicial> {
         situacao: SituacaoDaLeitura.salva,
         mensagem: resultado.mensagem,
         contabilizada: true,
+      );
+    } on CodigoDeOutroModo catch (erro) {
+      // Bipou código de outro modo: rejeita com aviso e som de erro.
+      _registrarFalha();
+      return RetornoDaLeitura(
+        situacao: SituacaoDaLeitura.erro,
+        mensagem: erro.toString(),
       );
     } on FormatException {
       // OBS: outros códigos impressos na etiqueta são ignorados sem bip.
@@ -148,15 +158,19 @@ class _PaginaInicialState extends State<PaginaInicial> {
     }
   }
 
-  Future<void> _confirmarLimpeza() async {
-    if (_historico.isEmpty) return;
+  Future<void> _confirmarLimpeza(DestinoLeitura destino) async {
+    final quantosSerao = _historico
+        .where((item) => item.destino == destino.rotulo)
+        .length;
+    if (quantosSerao == 0) return;
 
     final confirmou = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Limpar histórico?'),
-        content: const Text(
-          'A contagem e o histórico salvos neste aparelho serão apagados.',
+        title: Text('Limpar histórico de ${destino.rotulo}?'),
+        content: Text(
+          'A contagem e os itens de ${destino.rotulo} deste aparelho serão apagados. '
+          'Os itens do outro modo continuam salvos.',
         ),
         actions: [
           TextButton(
@@ -172,23 +186,28 @@ class _PaginaInicialState extends State<PaginaInicial> {
     );
 
     if (confirmou != true || !mounted) return;
-    setState(() => _historico = []);
     try {
-      await _armazenamentoDoHistorico.limpar();
+      final restantes = await _armazenamentoDoHistorico.limparPor(destino);
+      if (mounted) setState(() => _historico = restantes);
     } catch (_) {
       // A interface permanece utilizável mesmo se o cache falhar.
     }
   }
 
-  Future<void> _abrirCamera() async {
+  Future<void> _abrirCamera(DestinoLeitura modo) async {
     if (_enviando) return;
+
+    final quantidadeDoModo = _historico
+        .where((item) => item.destino == modo.rotulo)
+        .length;
 
     // OBS: a câmera permanece aberta e chama _enviarLeitura a cada código.
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => LeitorPelaCamera(
-          aoProcessar: _enviarLeitura,
-          quantidadeInicial: _historico.length,
+          modo: modo,
+          aoProcessar: (codigo) => _enviarLeitura(codigo, modo),
+          quantidadeInicial: quantidadeDoModo,
         ),
       ),
     );
@@ -236,9 +255,9 @@ class _PaginaInicialState extends State<PaginaInicial> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   children: [
-                    _ResumoDoHistorico(
-                      quantidade: _historico.length,
-                      aoLimpar: _historico.isEmpty ? null : _confirmarLimpeza,
+                    _ResumoPorModo(
+                      historico: _historico,
+                      aoLimpar: _confirmarLimpeza,
                     ),
                     const SizedBox(height: 14),
                     if (_carregandoHistorico)
@@ -314,11 +333,49 @@ class _Cabecalho extends StatelessWidget {
   }
 }
 
-class _ResumoDoHistorico extends StatelessWidget {
-  const _ResumoDoHistorico({required this.quantidade, required this.aoLimpar});
+class _ResumoPorModo extends StatelessWidget {
+  const _ResumoPorModo({required this.historico, required this.aoLimpar});
 
+  final List<ItemDoHistorico> historico;
+  final Future<void> Function(DestinoLeitura destino) aoLimpar;
+
+  int _contar(DestinoLeitura destino) =>
+      historico.where((item) => item.destino == destino.rotulo).length;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _CartaoContador(
+          titulo: 'Pedido de Venda',
+          icone: Icons.receipt_long_rounded,
+          quantidade: _contar(DestinoLeitura.pedidoDeVenda),
+          aoLimpar: () => aoLimpar(DestinoLeitura.pedidoDeVenda),
+        ),
+        const SizedBox(height: 10),
+        _CartaoContador(
+          titulo: 'Pedido Postal',
+          icone: Icons.local_shipping_rounded,
+          quantidade: _contar(DestinoLeitura.portalPostal),
+          aoLimpar: () => aoLimpar(DestinoLeitura.portalPostal),
+        ),
+      ],
+    );
+  }
+}
+
+class _CartaoContador extends StatelessWidget {
+  const _CartaoContador({
+    required this.titulo,
+    required this.icone,
+    required this.quantidade,
+    required this.aoLimpar,
+  });
+
+  final String titulo;
+  final IconData icone;
   final int quantidade;
-  final VoidCallback? aoLimpar;
+  final VoidCallback aoLimpar;
 
   @override
   Widget build(BuildContext context) {
@@ -330,15 +387,15 @@ class _ResumoDoHistorico extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 32),
+          Icon(icone, color: Colors.white, size: 32),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Itens bipados',
-                  style: TextStyle(
+                Text(
+                  titulo,
+                  style: const TextStyle(
                     color: CoresDoAplicativo.footerMuted,
                     fontWeight: FontWeight.w700,
                   ),
@@ -355,8 +412,11 @@ class _ResumoDoHistorico extends StatelessWidget {
             ),
           ),
           TextButton.icon(
-            onPressed: aoLimpar,
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            onPressed: quantidade == 0 ? null : aoLimpar,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              disabledForegroundColor: CoresDoAplicativo.footerMuted,
+            ),
             icon: const Icon(Icons.delete_outline_rounded),
             label: const Text('Limpar'),
           ),
